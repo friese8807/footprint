@@ -358,8 +358,37 @@ let toastT;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400); }
 
 /* ═════════════ API (Apps Script) ═════════════ */
+/* JSONP: 홈 화면 앱에서 fetch가 'Load failed'로 막힐 때 <script> 로 받아옴 (Code.gs 의 callback 지원 필요) */
+let jsonpN=0;
+function jsonp(url, params){
+  return new Promise((ok, fail)=>{
+    const cb='__fp'+(++jsonpN)+'_'+Date.now().toString(36), u=new URL(url), el=document.createElement('script');
+    const q={}; for(const k in params){ const v=params[k]; if(v!=null) q[k]=typeof v==='object'?JSON.stringify(v):String(v); }
+    u.search=new URLSearchParams({ ...q, callback:cb, _:Date.now() });
+    const done=()=>{ clearTimeout(t); delete window[cb]; el.remove(); };
+    const t=setTimeout(()=>{ done(); fail(new Error('서버 응답 없음 — Code.gs 최신본을 새 버전으로 배포했는지 확인하세요')); }, 20000);
+    window[cb]=j=>{ done(); ok(j); };
+    el.onerror=()=>{ done(); fail(new Error('네트워크 오류')); };
+    el.src=u.toString(); document.head.appendChild(el);
+  });
+}
 async function api(action, params={}, post=false){
   if(demo()) return demoApi(action, params);
+  if(LS.get('jsonp', false)){
+    const j = await jsonp(S.cfg.url, { action, token:S.cfg.token, ...params });
+    if(!j.ok) throw new Error(j.error || '요청 실패');
+    return j;
+  }
+  try{ return await apiFetch(action, params, post); }
+  catch(e){
+    if(e.name!=='TypeError' && !/JSON|parse/i.test(e.message)) throw e;   // 서버가 보낸 오류는 그대로
+    const j = await jsonp(S.cfg.url, { action, token:S.cfg.token, ...params });
+    LS.set('jsonp', true);
+    if(!j.ok) throw new Error(j.error || '요청 실패');
+    return j;
+  }
+}
+async function apiFetch(action, params, post){
   const u = new URL(S.cfg.url);
   let res;
   if(post){
@@ -871,9 +900,10 @@ dlg.addEventListener('click',e=>{ if(e.target===dlg || e.target.closest('[data-c
 $('#testBtn').onclick=async()=>{
   const url=$('#cfgUrl').value.trim(), token=$('#cfgToken').value.trim();
   if(!url) return toast('URL 을 입력하세요');
-  try{ const r=await fetch(`${url}?action=ping&token=${encodeURIComponent(token)}`); const j=await r.json();
-    toast(j.ok?'✅ 연결 성공':'❌ '+(j.error==='unauthorized'?'토큰이 일치하지 않아요':j.error)); }
-  catch(e){ toast('❌ 연결 실패 — URL/배포 권한을 확인하세요'); }
+  let j, how='fetch';
+  try{ const r=await fetch(`${url}?action=ping&token=${encodeURIComponent(token)}`); j=await r.json(); }
+  catch(e){ try{ j=await jsonp(url,{ action:'ping', token }); how='jsonp'; LS.set('jsonp', true); }catch(e2){ return toast('❌ 연결 실패 — '+e2.message); } }
+  toast(j.ok?`✅ 연결 성공 (${how})`:'❌ '+(j.error==='unauthorized'?'토큰이 일치하지 않아요':j.error));
 };
 $('#saveBtn').onclick=()=>{
   const prevKey=kakaoKey();
@@ -939,7 +969,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.12-d';
+const APP_VERSION='2026.11.12-e';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
