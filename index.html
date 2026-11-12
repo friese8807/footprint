@@ -88,8 +88,8 @@ header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── Bottom sheet ── */
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:600;height:calc(88dvh - var(--safe-t));border-radius:30px 30px 0 0;
-  transform:translateY(calc(100% - var(--sheet-peek,250px) - var(--safe-b)));transition:transform .4s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;
+.sheet{position:fixed;left:0;right:0;bottom:calc(-1 * var(--gap,0px));z-index:600;height:calc(88dvh - var(--safe-t) + var(--gap,0px));border-radius:30px 30px 0 0;
+  transform:translateY(calc(100% - var(--sheet-peek,250px) - var(--safe-b) - var(--gap,0px)));transition:transform .4s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;
   background:var(--glass-strong);border-bottom:0}
 .sheet.dragging{transition:none}
 /* iOS 홈 화면 앱에서 고정 영역이 화면 끝보다 위에서 끝나는 문제 → 패널 아래를 같은 색으로 이어 붙임 */
@@ -291,6 +291,8 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
     <div class="row"><button class="btn grad" id="addHereBtn">현재 위치로 등록</button><button class="btn" id="addCenterBtn">지도 중심으로 등록</button></div>
     <p class="note">지도를 <b>길게 누르면</b> 그 지점을 바로 장소로 등록할 수 있어요. 등록된 장소 반경 150m 안의 기록은 장소 이름으로 묶여 표시됩니다.</p>
 
+    <div class="gt">화면 진단</div>
+    <p class="note" id="diag" style="font-variant-numeric:tabular-nums"></p>
     <div class="gt">자동 기록 (1시간마다)</div>
     <p class="note">iOS 웹앱은 백그라운드 위치 접근이 불가능하므로 <b>단축어 앱 → 자동화</b>가 매시 정각에 위치를 시트로 보냅니다. 설정 방법은 README 의 “단축어 자동화” 항목을 참고하세요.</p>
   </div>
@@ -862,7 +864,7 @@ $('#seg').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.tab=
 
 /* ═════════════ 설정 & 장소 ═════════════ */
 const dlg=$('#settings');
-$('#settingsBtn').onclick=()=>{ $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; $('#cfgKakao').value=kakaoKey(); renderPlaces(); dlg.showModal(); };
+$('#settingsBtn').onclick=()=>{ fixGap(); $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; $('#cfgKakao').value=kakaoKey(); renderPlaces(); dlg.showModal(); };
 dlg.addEventListener('click',e=>{ if(e.target===dlg || e.target.closest('[data-close]')) dlg.close(); });
 $('#testBtn').onclick=async()=>{
   const url=$('#cfgUrl').value.trim(), token=$('#cfgToken').value.trim();
@@ -935,7 +937,22 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-addEventListener('resize',setPeek);
+const APP_VERSION='2026.11.12-b';
+/* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
+function fixGap(){
+  const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  const portraitH = Math.max(screen.height, screen.width) === screen.height ? screen.height : screen.width;
+  const raw = (innerHeight < innerWidth) ? 0 : portraitH - innerHeight;
+  const gap = standalone && raw > 0 && raw < 160 ? raw : 0;
+  document.documentElement.style.setProperty('--gap', gap+'px');
+  const probe=document.createElement('div'); probe.style.cssText='position:fixed;bottom:0;height:env(safe-area-inset-bottom);top:env(safe-area-inset-top);visibility:hidden';
+  document.body.appendChild(probe); const sb=getComputedStyle(probe).height, st=getComputedStyle(probe).top; probe.remove();
+  const d=document.getElementById('diag');
+  if(d) d.textContent=`버전 ${APP_VERSION} · ${standalone?'홈 화면 앱':'브라우저'} · 화면 ${screen.width}×${screen.height} · 웹뷰 ${innerWidth}×${innerHeight} · 문서 ${document.documentElement.clientHeight} · 안전영역 위 ${st} 아래 ${sb} · 보정 ${gap}px`;
+}
+fixGap();
+addEventListener('resize',()=>{ fixGap(); setPeek(); });
+addEventListener('orientationchange',()=>setTimeout(()=>{ fixGap(); setPeek(); },300));
 addEventListener('online',flushQueue);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ dayCache.delete(kstDate(new Date())); if(S.date===kstDate(new Date())) loadDay(false); } });
 boot();
