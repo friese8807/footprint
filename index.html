@@ -765,7 +765,19 @@ function setupMapGestures(){
 }
 
 /* ═════════════ 시작 ═════════════ */
+/* 설정 링크: …/footprint/#setup=<base64(JSON {url, token})> 로 열면 설정을 저장하고 주소에서 지움 */
+function applySetupLink(){
+  const m=location.hash.match(/^#setup=([A-Za-z0-9_\-+/=%]+)/); if(!m) return;
+  try{
+    const j=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]).replace(/-/g,'+').replace(/_/g,'/')))));
+    if(j.url) S.cfg.url=String(j.url).trim();
+    if(j.token) S.cfg.token=String(j.token).trim();
+    LS.set('cfg',S.cfg); toast('✅ 구글 시트 연결 설정을 저장했어요');
+  }catch{ toast('설정 링크를 읽지 못했어요'); }
+  history.replaceState(null,'',location.pathname+location.search);
+}
 async function boot(){
+  applySetupLink();
   if(demo() && !S.places.length) S.places=DEMO_PLACES.slice();
   // URL 파라미터로 날짜 지정 가능 (?date=2026-11-12) — 위젯에서 열 때 사용
   const qd=new URLSearchParams(location.search).get('date'); if(qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) S.date=qd;
