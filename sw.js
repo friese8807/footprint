@@ -1,5 +1,5 @@
 // 발자취 서비스 워커 — 앱 셸은 캐시, 구글 시트 API는 항상 네트워크
-const CACHE = 'footprint-v15';
+const CACHE = 'footprint-v16';
 const SHELL = ['./', 'index.html', 'manifest.json', 'icons/icon-192.png', 'icons/apple-touch-icon.png',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'];

@@ -55,6 +55,16 @@ body.kakao #map{bottom:calc(var(--sheet-peek,250px) + var(--safe-b) - 2px)} /* �
 .car{position:absolute;left:-8px;top:-13px;width:16px;height:26px;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
 .train{position:absolute;left:-8px;top:-17px;width:16px;height:34px;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
 .plane{position:absolute;left:-15px;top:-15px;width:30px;height:30px;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.3))}
+.subway{position:absolute;left:-8px;top:-16px;width:16px;height:32px;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+/* 속도 범례 */
+.legend{position:absolute;left:14px;z-index:450;bottom:calc(var(--sheet-peek,250px) + var(--safe-b) + 14px);transition:bottom .35s cubic-bezier(.2,.8,.2,1);
+  padding:7px 10px 6px;border-radius:14px;font-size:9.5px;font-weight:700;color:var(--muted)}
+.legend .bars{display:flex;gap:2px}
+.legend .bars i{width:24px;height:6px;border-radius:3px;background:var(--c)}
+.legend .nums{display:flex;margin-top:3px}
+.legend .nums span{width:26px;text-align:left;font-variant-numeric:tabular-nums}
+.legend .nums span:first-child{width:24px}
+.legend .nums span:last-child{width:auto}
 
 .glass{background:var(--glass);border:1px solid var(--glass-line);box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.35);
   -webkit-backdrop-filter:blur(28px) saturate(190%);backdrop-filter:blur(28px) saturate(190%)}
@@ -115,6 +125,7 @@ header{position:absolute;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-in
 .scrub-h span{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scrub-h button{width:34px;height:34px;border-radius:12px;background:var(--faint);display:grid;place-items:center;flex:0 0 auto}
 .scrub-h button svg{width:15px;height:15px}
+.scrub-h .spd{width:auto;min-width:40px;padding:0 8px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .ruler{overflow-x:auto;scrollbar-width:none;touch-action:pan-x;position:relative;border-radius:14px;background:var(--faint);overscroll-behavior:contain;
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
 .ruler::-webkit-scrollbar{display:none}
@@ -124,6 +135,7 @@ header{position:absolute;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-in
 .inner .tk.h{height:13px;background:color-mix(in srgb,var(--text) 38%,transparent)}
 .inner .lb{position:absolute;top:5px;font-size:10px;font-weight:700;color:var(--muted);transform:translateX(-50%);white-space:nowrap}
 .inner .bar{position:absolute;top:22px;height:8px;border-radius:5px;background:var(--c);opacity:.85}
+.inner .mv{position:absolute;top:34px;height:5px;border-radius:3px;background:var(--c)}
 .inner .rd{position:absolute;top:21px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px var(--glass-strong)}
 .needle{position:absolute;left:50%;bottom:0;width:3px;height:48px;margin-left:-1.5px;border-radius:3px;background:var(--text);pointer-events:none}
 .needle::before{content:"";position:absolute;left:50%;top:-5px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;background:var(--text)}
@@ -248,6 +260,11 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
   </button>
 </div>
 
+<div class="legend glass" id="legend" aria-label="이동 속도 색상">
+  <div class="bars"><i style="--c:#22c55e"></i><i style="--c:#a3c614"></i><i style="--c:#f59e0b"></i><i style="--c:#f05252"></i><i style="--c:#c03dd6"></i><i style="--c:#3b6cf6"></i></div>
+  <div class="nums"><span>0</span><span>6</span><span>20</span><span>50</span><span>100</span><span>200km/h</span></div>
+</div>
+
 <section class="sheet glass" id="sheet">
   <div class="grab" id="grab">
     <div class="handle"></div>
@@ -258,6 +275,7 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
     </div>
     <div class="scrub">
       <div class="scrub-h"><b id="scrubTime">--:--</b><span id="scrubWhere">좌우로 밀어 시간대별 위치를 확인하세요</span>
+        <button class="spd" id="spdBtn" aria-label="재생 속도">4×</button>
         <button id="playBtn" aria-label="재생"><svg viewBox="0 0 24 24" fill="currentColor"><path id="playIco" d="M7 4.5v15l13-7.5z"/></svg></button></div>
       <div class="ruler" id="ruler"><div class="track"><div class="inner" id="rulerInner"></div></div></div>
       <i class="needle"></i>
@@ -282,6 +300,11 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
     <div class="gt">배경 지도</div>
     <div class="group">
       <label class="field"><span>카카오맵 JavaScript 키 (비우면 기본 지도)</span><input id="cfgKakao" placeholder="Kakao Developers → 앱 → 플랫폼 키 → JavaScript 키" autocomplete="off"></label>
+    </div>
+    <div class="gt">이동 수단</div>
+    <div class="group">
+      <label class="field" style="display:flex;align-items:center;gap:10px"><input id="cfgSubway" type="checkbox" style="width:22px;height:22px;flex:0 0 auto">
+        <span style="margin:0">지하철 자동 추정<br><small>지하철역 근처에서 다른 역 근처까지 시속 12~60km 로 이동하면 지하철로 표시 (카카오맵 사용 시)</small></span></label>
     </div>
     <div class="row"><button class="btn" id="testBtn">연결 테스트</button><button class="btn pri" id="saveBtn">저장</button></div>
     <p class="note">URL 을 비워두면 <b>데모 모드</b>로 예시 데이터가 표시됩니다.</p>
@@ -350,6 +373,10 @@ function lerpColor(t){
   const c=stops[i].map((v,k)=>Math.round(v+(stops[i+1][k]-v)*f));
   return `rgb(${c})`;
 }
+/* 이동 속도(km/h) → 색 */
+const SPEED_BANDS = [[6,'#22c55e'],[20,'#a3c614'],[50,'#f59e0b'],[100,'#f05252'],[200,'#c03dd6'],[Infinity,'#3b6cf6']];
+const speedColor = kmh => SPEED_BANDS.find(([v])=>kmh < v)[1];
+function segKmh(a,b){ const h=(new Date(b.ts)-new Date(a.ts))/3600e3; return h>0 ? hav(a,b)/1000/h : 0; }
 function fmtDur(ms){
   const m=Math.round(ms/60000); if(m<60) return `${m}분`;
   const h=Math.floor(m/60), r=m%60; return r ? `${h}시간 ${r}분` : `${h}시간`;
@@ -496,7 +523,7 @@ async function initMap(){
   const key=kakaoKey();
   if(key){
     try{
-      await loadScript(`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false`);
+      await loadScript(`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false&libraries=services`);
       await Promise.race([ new Promise(r=>kakao.maps.load(r)), new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),10000)) ]);
       document.body.classList.add('kakao');
       M=kakaoAdapter(); return;
@@ -586,7 +613,7 @@ function buildStays(pts){
   }
   stays.forEach((s,i)=>{
     s.idx=i; s.color=lerpColor(stays.length>1 ? i/(stays.length-1) : 0);
-    s.name = s.place ? s.place.name : (shortAddr(s.pts.find(x=>x.address)?.address) || `${s.center.lat.toFixed(4)}, ${s.center.lng.toFixed(4)}`);
+    s.name = s.place ? s.place.name : (shortAddr(s.pts.find(x=>x.address)?.address) || (SW8[swKey(s.center)] ? SW8[swKey(s.center)].n+' 부근' : '') || `${s.center.lat.toFixed(4)}, ${s.center.lng.toFixed(4)}`);
     s.emoji = s.place?.emoji || '';
     s.ms = new Date(s.end.ts) - new Date(s.start.ts);
   });
@@ -606,7 +633,7 @@ function drawDay(fit=true){
 
   // 은은한 경로 글로우 (시간에 따라 그라데이션)
   for(let i=1;i<pts.length;i++){
-    const c=lerpColor((i-.5)/(pts.length-1));
+    const c=speedColor(segKmh(pts[i-1],pts[i]));
     M.line('glow', pts[i-1], pts[i], c, 10, M.kind==='kakao' ? .3 : .16);
   }
   // 체류 지점 마커
@@ -628,7 +655,8 @@ function isDrive(a,b){
   return d > CAR_M || d/1000/h > CAR_KMH;
 }
 /* 기차/비행기 구간: 서로 다른 역(…역, 🚉) 또는 공항(…공항, ✈️) 사이를, 중간에 다른 장소에 머물지 않고 이동한 구간 */
-const isStation = pl => !!pl && (/역$/.test(pl.name) || pl.emoji==='🚉');
+const isSubwayPl = pl => !!pl && pl.emoji==='🚇';
+const isStation = pl => !!pl && !isSubwayPl(pl) && (/역$/.test(pl.name) || pl.emoji==='🚉');
 const isAirport = pl => !!pl && (/공항$/.test(pl.name) || /✈/.test(pl.emoji||''));
 function hubSegs(pts, isHub){
   const pl = pts.map(matchPlace), out = new Set();
@@ -639,16 +667,51 @@ function hubSegs(pts, isHub){
   }
   return out;                                                  // 구간 i = (pts[i-1] → pts[i])
 }
-const trainSegs = pts => hubSegs(pts, isStation);
-const flightSegs = pts => hubSegs(pts, isAirport);
-/* 이동 수단: 'plane' | 'train' | 'car' | 'walk' (구간 i = pts[i-1] → pts[i]) */
-function modeOf(pts, i, tr, fl){
-  if(fl.has(i)) return 'plane';
-  if(tr.has(i)) return 'train';
-  return isDrive(pts[i-1], pts[i]) ? 'car' : 'walk';
+/* 지하철 자동 추정: 양 끝이 서로 다른 지하철역(카카오 SW8) 500m 이내, 1.2km 이상, 시속 12~60km */
+const SW8 = LS.get('sw8', {});                                 // 좌표(소수 3자리) → { n:역 이름 } | 0
+const swKey = p => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
+const autoSubway = () => LS.get('autoSubway', true);
+const subwayCand = (a,b) => { const d=hav(a,b), v=segKmh(a,b); return d>=1200 && v>=12 && v<=60; };
+let swPending=false;
+function lookupStations(pts){
+  if(!autoSubway() || swPending || !window.kakao?.maps?.services) return;
+  const need=new Set();
+  for(let i=1;i<pts.length;i++) if(subwayCand(pts[i-1],pts[i])) [pts[i-1],pts[i]].forEach(p=>{ if(!(swKey(p) in SW8)) need.add(swKey(p)); });
+  if(!need.size) return;
+  swPending=true;
+  const ps=new kakao.maps.services.Places();
+  Promise.all([...need].map(k=>new Promise(res=>{
+    const [lat,lng]=k.split(',').map(Number);
+    ps.categorySearch('SW8',(data,status)=>{
+      if(status===kakao.maps.services.Status.OK && data[0]) SW8[k]={ n:data[0].place_name.split(' ')[0] };
+      else if(status===kakao.maps.services.Status.ZERO_RESULT) SW8[k]=0;
+      res();
+    },{ location:new kakao.maps.LatLng(lat,lng), radius:500, sort:kakao.maps.services.SortBy.DISTANCE });
+  }))).then(()=>{ swPending=false; LS.set('sw8',SW8); modeMemo=null; if(S.points===pts){ drawDay(false); renderList(); } });
 }
-const MODE_ICON = { plane:'✈️', train:'🚄', car:'🚗', walk:'👣' };
-const MODE_TEXT = { plane:'비행기 이동', train:'기차 이동', car:'차량 이동', walk:'도보 이동' };
+/* 구간별 이동 수단: 'plane' | 'train' | 'subway' | 'car' | 'walk' (구간 i = pts[i-1] → pts[i]) */
+let modeMemo=null;
+function travelModes(pts){
+  if(modeMemo && modeMemo.pts===pts && modeMemo.places===S.places) return modeMemo.m;
+  const fl=hubSegs(pts,isAirport), tr=hubSegs(pts,isStation), sw=hubSegs(pts,isSubwayPl), m=[null];
+  for(let i=1;i<pts.length;i++){
+    const a=pts[i-1], b=pts[i], sa=SW8[swKey(a)], sb=SW8[swKey(b)];
+    m[i] = fl.has(i) ? 'plane' : tr.has(i) ? 'train'
+      : (sw.has(i) || (autoSubway() && subwayCand(a,b) && sa && sb && sa.n!==sb.n)) ? 'subway'
+      : isDrive(a,b) ? 'car' : 'walk';
+  }
+  modeMemo={ pts, places:S.places, m };
+  return m;
+}
+const modeOf = (pts,i) => travelModes(pts)[i];
+const MODE_ICON = { plane:'✈️', train:'🚄', subway:'🚇', car:'🚗', walk:'👣' };
+const MODE_TEXT = { plane:'비행기 이동', train:'기차 이동', subway:'지하철 이동', car:'차량 이동', walk:'도보 이동' };
+/* 위에서 본 지하철 차량 */
+const SUBWAY = fill => `<svg width="16" height="32" viewBox="0 0 16 32">
+  <rect x="1.4" y="1" width="13.2" height="30" rx="3.2" fill="${fill}" stroke="#fff" stroke-width="1.6"/>
+  <rect x="3.6" y="3.4" width="8.8" height="3.4" rx="1" fill="#fff" opacity=".92"/>
+  <path d="M1.8 11h12.4M1.8 18h12.4M1.8 25h12.4" stroke="#fff" stroke-width="1.4" opacity=".8"/>
+  <circle cx="8" cy="14.5" r="1.3" fill="#fff" opacity=".75"/><circle cx="8" cy="21.5" r="1.3" fill="#fff" opacity=".75"/></svg>`;
 /* 위에서 본 비행기 (진행 방향이 위쪽) */
 const PLANE = fill => `<svg width="30" height="30" viewBox="0 0 30 30">
   <path d="M15 1.5c1.3 0 2.1 1.3 2.1 3v7.3l10.4 6.1v3l-10.4-3.2v6.1l3.2 2.4v2.4L15 27.2l-5.3 1.4v-2.4l3.2-2.4v-6.1L2.5 20.9v-3l10.4-6.1V4.5c0-1.7.8-3 2.1-3z"
@@ -676,30 +739,29 @@ function drawSteps(){
   let total=0; for(let i=1;i<px.length;i++) total+=dist(px[i],px[i-1]);
   const gap = Math.max(20, total/450), off=4.5;
   let step=0;
-  const trains=trainSegs(pts), flights=flightSegs(pts);
   for(let i=1;i<px.length;i++){
     const a=px[i-1], b=px[i], len=dist(a,b);
     if(len < 46) continue;                         // 같은 장소 체류 구간은 생략
     const ux=(b.x-a.x)/len, uy=(b.y-a.y)/len, ang=Math.atan2(uy,ux)*180/Math.PI+90;
     const ma=toMin(pts[i-1].time), mb=toMin(pts[i].time), mAt=t=>Math.round(ma+(mb-ma)*t/len);
-    const mode=modeOf(pts, i, trains, flights);
+    const mode=modeOf(pts, i), c=speedColor(segKmh(pts[i-1],pts[i]));
     if(mode!=='walk'){                             // 차량/기차/비행기 구간: 아이콘을 넓은 간격으로
-      const cg=Math.max(mode==='car'?64:mode==='train'?80:110, gap*3), n=Math.max(1, Math.floor((len-30)/cg));
+      const cg=Math.max(mode==='car'?64:mode==='plane'?110:80, gap*3), n=Math.max(1, Math.floor((len-30)/cg));
       for(let k=0;k<n;k++){
         const t = n===1 ? len/2 : 24 + (len-48)*k/(n-1);
-        const c=lerpColor((i-1 + t/len)/(pts.length-1));
-        M.html('steps', M.fromPx(a.x+ux*t, a.y+uy*t), `<div class="${mode}" data-m="${mAt(t)}" style="transform:rotate(${ang}deg)">${mode==='plane'?PLANE(c):mode==='train'?TRAIN(c):CAR(c)}</div>`, { z:2 });
+        const icon = { plane:PLANE, train:TRAIN, subway:SUBWAY, car:CAR }[mode](c);
+        M.html('steps', M.fromPx(a.x+ux*t, a.y+uy*t), `<div class="${mode}" data-m="${mAt(t)}" style="transform:rotate(${ang}deg)">${icon}</div>`, { z:2 });
       }
       continue;
     }
     for(let t=22; t<len-22; t+=gap){
       const side = step++%2 ? 1 : -1;
       const x=a.x+ux*t - uy*off*side, y=a.y+uy*t + ux*off*side;
-      const c=lerpColor((i-1 + t/len)/(pts.length-1));
       M.html('steps', M.fromPx(x,y), `<div class="step" data-m="${mAt(t)}" style="transform:rotate(${ang}deg)">${FOOT(c, side>0)}</div>`, { z:1 });
     }
   }
   applyTime(S.T, false);
+  lookupStations(pts);
 }
 
 function sheetPeek(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-peek'))||250; }
@@ -732,11 +794,12 @@ function renderList(){
     return;
   }
   if(S.tab==='timeline'){
-    let h='<div class="tl">'; const trains=trainSegs(S.points), flights=flightSegs(S.points);
+    let h='<div class="tl">';
     stays.forEach((s,i)=>{
       if(i>0){ const d=hav(stays[i-1].end, s.start);
-        const si=S.points.indexOf(s.start), mode = si>0 ? modeOf(S.points, si, trains, flights) : (isDrive(stays[i-1].end, s.start)?'car':'walk');
-        h+=`<div class="move">${MODE_ICON[mode]} ${MODE_TEXT[mode]} · ${d>=1000?(d/1000).toFixed(1)+'km':Math.round(d)+'m'}</div>`; }
+        const si=S.points.indexOf(s.start), mode = si>0 ? modeOf(S.points, si) : (isDrive(stays[i-1].end, s.start)?'car':'walk');
+        const v=segKmh(stays[i-1].end, s.start);
+        h+=`<div class="move">${MODE_ICON[mode]} ${MODE_TEXT[mode]} · ${d>=1000?(d/1000).toFixed(1)+'km':Math.round(d)+'m'}${d>=300&&v>0?` · <b style="color:${speedColor(v)}">${Math.round(v)}km/h</b>`:''}</div>`; }
       const when = s.pts.length>1 ? `${s.start.time} – ${s.end.time}` : s.start.time;
       const sub = s.place ? shortAddr(s.pts.find(x=>x.address)?.address)||'' : '';
       h+=`<button class="tl-item" data-i="${i}" style="--c:${s.color}">
@@ -872,6 +935,8 @@ function renderRuler(){
   for(let i=0;i<=48;i++){ const x=i*PX_H/2; h+=`<i class="tk${i%2?'':' h'}" style="left:${x}px"></i>`; if(i%2===0) h+=`<span class="lb" style="left:${x}px">${i/2}시</span>`; }
   stays.forEach(st=>{ if(st.pts.length>1){ const a=toMin(st.start.time), b=toMin(st.end.time);
     h+=`<i class="bar" style="left:${a*PX_H/60}px;width:${(b-a)*PX_H/60}px;--c:${st.color}"></i>`; } });
+  for(let i=1;i<pts.length;i++){ if(hav(pts[i-1],pts[i])<150) continue; const a=toMin(pts[i-1].time), b=toMin(pts[i].time);
+    h+=`<i class="mv" style="left:${a*PX_H/60}px;width:${Math.max(2,(b-a)*PX_H/60)}px;--c:${speedColor(segKmh(pts[i-1],pts[i]))}"></i>`; }
   pts.forEach((p,i)=>{ h+=`<i class="rd" style="left:${toMin(p.time)*PX_H/60}px;--c:${lerpColor(pts.length>1?i/(pts.length-1):0)}"></i>`; });
   el.innerHTML=h; el.style.width=(24*PX_H)+'px';
   // 기본 시각: 오늘이면 지금, 지난 날이면 마지막 기록
@@ -895,9 +960,9 @@ function stateAt(T){
   let i=0; while(i<n-2 && T>=ms[i+1]) i++;
   const a=pts[i], b=pts[i+1], f=(T-ms[i])/Math.max(1,ms[i+1]-ms[i]);
   if(hav(a,b) < 150) return { pos:a, label:`📍 ${nameOfPoint(a)}` };
-  const mode=modeOf(pts, i+1, trainSegs(pts), flightSegs(pts));
-  return { pos:{ lat:a.lat+(b.lat-a.lat)*f, lng:a.lng+(b.lng-a.lng)*f }, drive: mode!=='walk', mode,
-           label:`${MODE_ICON[mode]} ${nameOfPoint(a)} → ${nameOfPoint(b)}` };
+  const mode=modeOf(pts, i+1), v=segKmh(a,b);
+  return { pos:{ lat:a.lat+(b.lat-a.lat)*f, lng:a.lng+(b.lng-a.lng)*f }, drive: mode!=='walk', mode, color:speedColor(v),
+           label:`${MODE_ICON[mode]} ${nameOfPoint(a)} → ${nameOfPoint(b)} · ${Math.round(v)}km/h` };
 }
 function applyTime(T, updateCursor=true){
   T=Math.max(0, Math.min(1440, T)); S.T=T;
@@ -906,12 +971,17 @@ function applyTime(T, updateCursor=true){
   if(!M) return;
   const st=stateAt(T);
   $('#scrubWhere').textContent = st ? st.label : '이 날은 기록이 없어요';
-  if(updateCursor || st) M.cursor(st && st.pos, st && st.drive ? `<div class="cur drive">${MODE_ICON[st.mode]||'🚗'}</div>` : '<div class="cur"></div>');
+  if(updateCursor || st) M.cursor(st && st.pos, st && st.drive ? `<div class="cur drive" style="border-color:${st.color}">${MODE_ICON[st.mode]||'🚗'}</div>` : '<div class="cur"></div>');
 }
 (()=>{
   const r=$('#ruler'); let raf=0, playing=0, last=0;
   r.addEventListener('scroll',()=>{ if(wantT!=null || raf) return; raf=requestAnimationFrame(()=>{ raf=0; applyTime(r.scrollLeft/PX_H*60); }); },{ passive:true });
   const stop=()=>{ if(!playing) return; cancelAnimationFrame(playing); playing=0; $('#playIco').setAttribute('d','M7 4.5v15l13-7.5z'); };
+  const SPEEDS=[1,2,4,8,16];                         // 1× = 15분/초
+  let spd=LS.get('pspeed',4); if(!SPEEDS.includes(spd)) spd=4;
+  const showSpd=()=>{ $('#spdBtn').textContent=spd+'×'; $('#spdBtn').setAttribute('aria-label',`재생 속도 ${spd}배 (1초에 ${spd*15}분)`); };
+  showSpd();
+  $('#spdBtn').onclick=()=>{ spd=SPEEDS[(SPEEDS.indexOf(spd)+1)%SPEEDS.length]; LS.set('pspeed',spd); showSpd(); toast(`재생 속도 ${spd}× · 1초에 ${spd*15>=60?(spd*15/60)+'시간':spd*15+'분'}`); };
   r.addEventListener('pointerdown',()=>{ wantT=null; stop(); }); r.addEventListener('touchstart',()=>{ wantT=null; stop(); },{ passive:true });
   $('#playBtn').onclick=()=>{
     if(playing) return stop();
@@ -919,7 +989,7 @@ function applyTime(T, updateCursor=true){
     const startM=toMin(pts[0].time), endM=toMin(pts[pts.length-1].time);
     if(S.T>=endM || S.T<startM) setRuler(Math.max(0,startM-15));
     $('#playIco').setAttribute('d','M6 4h4v16H6zM14 4h4v16h-4z'); last=performance.now();
-    const tick=now=>{ const T=S.T+(now-last)/1000*90; last=now;   // 1초 = 90분
+    const tick=now=>{ const T=S.T+(now-last)/1000*spd*15; last=now;   // 1초 = spd×15분
       if(T>=endM){ setRuler(endM); stop(); return; }
       r.scrollLeft=T*PX_H/60; applyTime(T); playing=requestAnimationFrame(tick); };
     playing=requestAnimationFrame(tick);
@@ -946,7 +1016,7 @@ $('#seg').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.tab=
 
 /* ═════════════ 설정 & 장소 ═════════════ */
 const dlg=$('#settings');
-$('#settingsBtn').onclick=()=>{ fixGap(); $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; $('#cfgKakao').value=kakaoKey(); renderPlaces(); dlg.showModal(); };
+$('#settingsBtn').onclick=()=>{ fixGap(); $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; $('#cfgKakao').value=kakaoKey(); $('#cfgSubway').checked=autoSubway(); renderPlaces(); dlg.showModal(); };
 dlg.addEventListener('click',e=>{ if(e.target===dlg || e.target.closest('[data-close]')) dlg.close(); });
 $('#testBtn').onclick=async()=>{
   const url=$('#cfgUrl').value.trim(), token=$('#cfgToken').value.trim();
@@ -958,6 +1028,7 @@ $('#testBtn').onclick=async()=>{
   LS.set('mode', how);
   toast(j.ok?`✅ 연결 성공 (${how})`:'❌ '+(j.error==='unauthorized'?'토큰이 일치하지 않아요':j.error));
 };
+$('#cfgSubway').onchange=e=>{ LS.set('autoSubway', e.target.checked); modeMemo=null; drawDay(false); renderList(); };
 $('#saveBtn').onclick=()=>{
   const prevKey=kakaoKey();
   S.cfg={ url:$('#cfgUrl').value.trim(), token:$('#cfgToken').value.trim(), kakaoKey:$('#cfgKakao').value.trim() }; LS.set('cfg',S.cfg);
@@ -1022,7 +1093,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.12-h';
+const APP_VERSION='2026.11.12-i';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
