@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>발자취</title>
 <meta name="description" content="한 시간마다 기록되는 나의 하루 발자취">
-<meta name="theme-color" content="#f4f2fb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0c0b12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fcfcfe" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1a28" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="발자취">
@@ -36,7 +36,10 @@
   }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);overflow:hidden;
+html{background:#fcfcfe} /* iOS 홈 화면 앱 하단 띠가 패널과 같은 색으로 보이도록 */
+@media (prefers-color-scheme: dark){html{background:#1c1a28}}
+body{background:var(--bg)}
+html,body{margin:0;height:100%;color:var(--text);overflow:hidden;
   font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;letter-spacing:-.01em;overscroll-behavior:none}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
@@ -144,7 +147,7 @@ header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index
 .seg{display:flex;background:var(--faint);border-radius:13px;padding:3px;margin:14px 18px 6px}
 .seg button{flex:1;padding:7px 0;border-radius:10px;font-size:13px;font-weight:700;color:var(--muted)}
 .seg button.on{background:var(--glass-strong);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.scroll{overflow-y:auto;flex:1;padding:6px 18px calc(var(--safe-b) + 24px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.scroll{overflow-y:auto;flex:1;padding:6px 18px calc(var(--safe-b) + 110px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 .tl{position:relative}
 .tl-item{display:flex;gap:12px;align-items:center;padding:10px 4px;border-radius:16px;transition:transform .12s;width:100%;text-align:left}
@@ -792,7 +795,13 @@ function renderRuler(){
   const T = S.date===kstDate(new Date()) ? nowM : (pts.length ? toMin(pts[pts.length-1].time) : 12*60);
   setRuler(T);
 }
-function setRuler(T){ const r=$('#ruler'); r.scrollLeft=T*PX_H/60; applyTime(T); }
+let wantT=null;   /* 코드로 위치를 옮기는 동안에는 스크롤 이벤트를 무시 (레이아웃 전 0으로 되돌아가는 문제 방지) */
+function setRuler(T){
+  const r=$('#ruler'), go=()=>{ if(wantT!=null) r.scrollLeft=wantT*PX_H/60; };
+  wantT=T; go(); applyTime(T);
+  requestAnimationFrame(go); setTimeout(go,120); setTimeout(()=>{ go(); wantT=null; },400);
+}
+addEventListener('resize',()=>setRuler(S.T));
 function nameOfPoint(p){ const st=stays.find(s=>s.pts.includes(p)); return st ? st.name : shortAddr(p.address)||'이동 중'; }
 function stateAt(T){
   const pts=S.points; if(!pts.length) return null;
@@ -817,9 +826,9 @@ function applyTime(T, updateCursor=true){
 }
 (()=>{
   const r=$('#ruler'); let raf=0, playing=0, last=0;
-  r.addEventListener('scroll',()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; applyTime(r.scrollLeft/PX_H*60); }); },{ passive:true });
+  r.addEventListener('scroll',()=>{ if(wantT!=null || raf) return; raf=requestAnimationFrame(()=>{ raf=0; applyTime(r.scrollLeft/PX_H*60); }); },{ passive:true });
   const stop=()=>{ if(!playing) return; cancelAnimationFrame(playing); playing=0; $('#playIco').setAttribute('d','M7 4.5v15l13-7.5z'); };
-  r.addEventListener('pointerdown',stop); r.addEventListener('touchstart',stop,{ passive:true });
+  r.addEventListener('pointerdown',()=>{ wantT=null; stop(); }); r.addEventListener('touchstart',()=>{ wantT=null; stop(); },{ passive:true });
   $('#playBtn').onclick=()=>{
     if(playing) return stop();
     const pts=S.points; if(!pts.length) return toast('재생할 기록이 없어요');
