@@ -51,6 +51,14 @@ $('#go').onclick=async()=>{
     s.onerror=()=>{ clearTimeout(t); log('③ JSONP 실패: script 로드 오류'); res(); };
     s.src=u+'?'+q+'&callback='+cb; document.head.appendChild(s);
   });
+  // 5) 프레임 방식 (Code.gs 최신본 필요)
+  await new Promise(res=>{
+    const id='d'+Date.now(), fr=document.createElement('iframe');
+    const t=setTimeout(()=>{ removeEventListener('message',on); fr.remove(); log('⑤ 프레임: 시간 초과 (Code.gs 최신본 배포 필요할 수 있음)'); res(); },20000);
+    const on=e=>{ if(e.data&&e.data.fp===id){ clearTimeout(t); removeEventListener('message',on); fr.remove(); log('⑤ 프레임 성공: '+JSON.stringify(e.data.data)); res(); } };
+    addEventListener('message',on); fr.style.cssText='width:1px;height:1px;border:0;opacity:0';
+    fr.src=u+'?'+q+'&frame='+id; document.body.appendChild(fr);
+  });
   // 4) 비교: 같은 구글 서버의 다른 주소
   try{ await withTimeout(fetch('https://script.google.com/favicon.ico',{mode:'no-cors'}),10000); log('④ script.google.com 기본 도달: OK'); }
   catch(e){ log('④ script.google.com 기본 도달 실패: '+e.message); }

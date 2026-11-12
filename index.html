@@ -366,27 +366,42 @@ function jsonp(url, params){
     const q={}; for(const k in params){ const v=params[k]; if(v!=null) q[k]=typeof v==='object'?JSON.stringify(v):String(v); }
     u.search=new URLSearchParams({ ...q, callback:cb, _:Date.now() });
     const done=()=>{ clearTimeout(t); delete window[cb]; el.remove(); };
-    const t=setTimeout(()=>{ done(); fail(new Error('서버 응답 없음 — Code.gs 최신본을 새 버전으로 배포했는지 확인하세요')); }, 20000);
+    const t=setTimeout(()=>{ done(); fail(new Error('JSONP 응답 없음')); }, 12000);
     window[cb]=j=>{ done(); ok(j); };
     el.onerror=()=>{ done(); fail(new Error('네트워크 오류')); };
     el.src=u.toString(); document.head.appendChild(el);
   });
 }
+/* 프레임 방식: 숨은 iframe 으로 Apps Script 를 열고 postMessage 로 결과를 받음 (fetch·JSONP 모두 막힌 Safari 대비) */
+let frameN=0;
+function viaFrame(url, params){
+  return new Promise((ok, fail)=>{
+    const id='f'+(++frameN)+Date.now().toString(36), u=new URL(url), fr=document.createElement('iframe');
+    const q={}; for(const k in params){ const v=params[k]; if(v!=null) q[k]=typeof v==='object'?JSON.stringify(v):String(v); }
+    u.search=new URLSearchParams({ ...q, frame:id, _:Date.now() });
+    const onMsg=e=>{ if(e.data && e.data.fp===id){ done(); ok(e.data.data); } };
+    const done=()=>{ clearTimeout(t); removeEventListener('message', onMsg); fr.remove(); };
+    const t=setTimeout(()=>{ done(); fail(new Error('서버 응답 없음 — Code.gs 최신본을 새 버전으로 배포했는지 확인하세요')); }, 25000);
+    addEventListener('message', onMsg);
+    fr.style.cssText='position:absolute;width:1px;height:1px;left:-9px;top:-9px;border:0;opacity:0;pointer-events:none';
+    fr.src=u.toString(); document.body.appendChild(fr);
+  });
+}
+const MODES={ fetch:(a,p,post)=>apiFetch(a,p,post), jsonp:(a,p)=>jsonp(S.cfg.url,{ action:a, token:S.cfg.token, ...p }), frame:(a,p)=>viaFrame(S.cfg.url,{ action:a, token:S.cfg.token, ...p }) };
 async function api(action, params={}, post=false){
   if(demo()) return demoApi(action, params);
-  if(LS.get('jsonp', false)){
-    const j = await jsonp(S.cfg.url, { action, token:S.cfg.token, ...params });
-    if(!j.ok) throw new Error(j.error || '요청 실패');
-    return j;
+  const saved=LS.get('mode', null);
+  const order = saved ? [saved, ...Object.keys(MODES).filter(m=>m!==saved)] : Object.keys(MODES);
+  let err;
+  for(const m of order){
+    try{
+      const j = await MODES[m](action, params, post);
+      if(m!==saved) LS.set('mode', m);
+      if(!j.ok) throw Object.assign(new Error(j.error || '요청 실패'), { server:true });
+      return j;
+    }catch(e){ if(e.server) throw e; err=e; }
   }
-  try{ return await apiFetch(action, params, post); }
-  catch(e){
-    if(e.name!=='TypeError' && !/JSON|parse/i.test(e.message)) throw e;   // 서버가 보낸 오류는 그대로
-    const j = await jsonp(S.cfg.url, { action, token:S.cfg.token, ...params });
-    LS.set('jsonp', true);
-    if(!j.ok) throw new Error(j.error || '요청 실패');
-    return j;
-  }
+  throw err;
 }
 async function apiFetch(action, params, post){
   const u = new URL(S.cfg.url);
@@ -900,9 +915,11 @@ dlg.addEventListener('click',e=>{ if(e.target===dlg || e.target.closest('[data-c
 $('#testBtn').onclick=async()=>{
   const url=$('#cfgUrl').value.trim(), token=$('#cfgToken').value.trim();
   if(!url) return toast('URL 을 입력하세요');
-  let j, how='fetch';
-  try{ const r=await fetch(`${url}?action=ping&token=${encodeURIComponent(token)}`); j=await r.json(); }
-  catch(e){ try{ j=await jsonp(url,{ action:'ping', token }); how='jsonp'; LS.set('jsonp', true); }catch(e2){ return toast('❌ 연결 실패 — '+e2.message); } }
+  let j, how;
+  try{ const r=await fetch(`${url}?action=ping&token=${encodeURIComponent(token)}`); j=await r.json(); how='fetch'; }
+  catch(e){ try{ j=await jsonp(url,{ action:'ping', token }); how='jsonp'; }
+    catch(e2){ try{ j=await viaFrame(url,{ action:'ping', token }); how='frame'; }catch(e3){ return toast('❌ 연결 실패 — '+e3.message); } } }
+  LS.set('mode', how);
   toast(j.ok?`✅ 연결 성공 (${how})`:'❌ '+(j.error==='unauthorized'?'토큰이 일치하지 않아요':j.error));
 };
 $('#saveBtn').onclick=()=>{
@@ -969,7 +986,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.12-e';
+const APP_VERSION='2026.11.12-f';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
