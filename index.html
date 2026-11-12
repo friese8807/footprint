@@ -848,7 +848,7 @@ function applyTime(T, updateCursor=true){
 
 /* ═════════════ 바텀시트 드래그 ═════════════ */
 const sheet=$('#sheet');
-function setPeek(){ const sg=$('#seg'); const h=sg.offsetTop + sg.offsetHeight + 8; /* 접힌 상태: 통계·타임라인 바·탭까지 */ document.documentElement.style.setProperty('--sheet-peek', h+'px'); M?.relayout(); }
+function setPeek(){ const h=Math.round($('#ruler').getBoundingClientRect().bottom - $('#sheet').getBoundingClientRect().top + 6); /* 접힌 상태: 통계·타임라인 눈금자까지 (탭은 끌어올리면 보임) */ document.documentElement.style.setProperty('--sheet-peek', h+'px'); M?.relayout(); }
 let sheetState='peek';
 function setSheet(st){ sheetState=st; sheet.style.transform = st==='full' ? 'translateY(0)' : ''; }
 (()=>{
@@ -939,7 +939,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.12-c';
+const APP_VERSION='2026.11.12-d';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
