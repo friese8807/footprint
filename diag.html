@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>발자취 연결 진단</title>
+<style>
+:root{--bg:#f4f2fb;--card:#fff;--text:#0d0c14;--muted:#6c6a7c}
+@media (prefers-color-scheme:dark){:root{--bg:#0c0b12;--card:#1c1a28;--text:#f4f3fa;--muted:#9a98ad}}
+body{margin:0;padding:16px;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,system-ui,sans-serif}
+h1{font-size:20px;margin:8px 0 12px}
+.card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px;overflow-wrap:anywhere}
+label{display:block;font-size:12px;color:var(--muted);margin-top:8px}
+input{width:100%;box-sizing:border-box;font:13px ui-monospace,monospace;padding:8px;border-radius:10px;border:1px solid #8884;background:transparent;color:inherit}
+button{margin-top:12px;width:100%;padding:12px;border:0;border-radius:12px;background:#7c5cff;color:#fff;font:600 16px system-ui}
+pre{white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace;margin:0}
+</style></head><body>
+<h1>발자취 연결 진단</h1>
+<div class="card">
+  <label>웹 앱 URL (앱 설정값을 자동으로 불러옴)</label><input id="url">
+  <label>토큰</label><input id="tok">
+  <button id="go">진단 시작</button>
+</div>
+<div class="card"><pre id="out">진단 시작을 누르세요.</pre></div>
+<script>
+const $=s=>document.querySelector(s);
+let cfg={}; try{ cfg=JSON.parse(localStorage.getItem('fp.cfg')||'{}'); }catch{}
+$('#url').value=cfg.url||''; $('#tok').value=cfg.token||'';
+const out=[]; const log=s=>{ out.push(s); $('#out').textContent=out.join('\n'); };
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,f)=>setTimeout(()=>f(new Error('시간 초과 '+ms/1000+'초')),ms))]);
+function odd(s){ return [...s].filter(c=>c.charCodeAt(0)<33||c.charCodeAt(0)>126).map(c=>'U+'+c.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0')).join(' ')||'없음'; }
+$('#go').onclick=async()=>{
+  out.length=0;
+  const url=$('#url').value, tok=$('#tok').value, u=url.trim();
+  log('기기: '+navigator.userAgent);
+  log('홈 화면 앱: '+(navigator.standalone?'예':'아니오'));
+  log('URL 길이: '+url.length+' / 앞: '+u.slice(0,40)+' / 끝: '+u.slice(-12));
+  log('URL 특수문자: '+odd(url)+' / 토큰 길이: '+tok.length+' 특수문자: '+odd(tok));
+  let base; try{ base=new URL(u); log('URL 해석: OK ('+base.host+base.pathname.slice(0,14)+'…)'); }catch(e){ log('URL 해석 실패: '+e.message); return; }
+  const q=new URLSearchParams({action:'ping',token:tok.trim(),_:Date.now()});
+  // 1) fetch (CORS)
+  try{ const r=await withTimeout(fetch(u+'?'+q),15000); const t=await r.text();
+    log('① fetch: HTTP '+r.status+' '+(r.redirected?'(리다이렉트됨) ':'')+'→ '+t.slice(0,120)); }
+  catch(e){ log('① fetch 실패: '+e.name+': '+e.message); }
+  // 2) fetch no-cors (응답 내용은 못 읽지만 네트워크 도달 여부 확인)
+  try{ const r=await withTimeout(fetch(u+'?'+q,{mode:'no-cors'}),15000); log('② no-cors: 도달함 (type='+r.type+')'); }
+  catch(e){ log('② no-cors 실패: '+e.name+': '+e.message); }
+  // 3) JSONP <script>
+  await new Promise(res=>{
+    const cb='__d'+Date.now(), s=document.createElement('script');
+    const t=setTimeout(()=>{ log('③ JSONP: 시간 초과'); res(); },15000);
+    window[cb]=j=>{ clearTimeout(t); log('③ JSONP 성공: '+JSON.stringify(j)); res(); };
+    s.onerror=()=>{ clearTimeout(t); log('③ JSONP 실패: script 로드 오류'); res(); };
+    s.src=u+'?'+q+'&callback='+cb; document.head.appendChild(s);
+  });
+  // 4) 비교: 같은 구글 서버의 다른 주소
+  try{ await withTimeout(fetch('https://script.google.com/favicon.ico',{mode:'no-cors'}),10000); log('④ script.google.com 기본 도달: OK'); }
+  catch(e){ log('④ script.google.com 기본 도달 실패: '+e.message); }
+  log('\n— 끝. 이 화면을 캡처해서 보내주세요.');
+};
+</script>
+</body></html>
