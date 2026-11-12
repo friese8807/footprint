@@ -64,7 +64,6 @@ header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index
 .iconbtn{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;background:var(--tile);border:1px solid var(--glass-line)}
 .iconbtn svg{width:20px;height:20px}
 .iconbtn:active,.chip:active,.fab:active,.tl-item:active{transform:scale(.94)}
-#dateInput{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
 
 .strip{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x proximity;margin:10px -6px 0 -10px;padding:2px 6px 2px 10px;scrollbar-width:none;
   mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
@@ -100,10 +99,45 @@ header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index
 .tile.hero{background:var(--grad);color:#fff;border:0;position:relative;overflow:hidden}
 .tile.hero .k{color:rgba(255,255,255,.85)} .tile.hero .v small{color:rgba(255,255,255,.8)}
 .tile.hero::after{content:"";position:absolute;right:-20px;top:-30px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.18)}
-.hours{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:10px}
-.hours i{height:16px;border-radius:5px;background:var(--faint)}
-.hours i.on{background:var(--c)}
-.hours-l{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-weight:600;margin:4px 1px 0}
+/* 시간 스크러버 */
+.scrub{margin-top:12px;position:relative}
+.scrub-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.scrub-h b{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.scrub-h span{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scrub-h button{width:34px;height:34px;border-radius:12px;background:var(--faint);display:grid;place-items:center;flex:0 0 auto}
+.scrub-h button svg{width:15px;height:15px}
+.ruler{overflow-x:auto;scrollbar-width:none;touch-action:pan-x;position:relative;border-radius:14px;background:var(--faint);overscroll-behavior:contain;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
+.ruler::-webkit-scrollbar{display:none}
+.track{box-sizing:content-box;padding:0 50%;width:max-content}
+.inner{position:relative;height:48px}
+.inner .tk{position:absolute;bottom:0;width:1px;height:7px;background:color-mix(in srgb,var(--text) 20%,transparent)}
+.inner .tk.h{height:13px;background:color-mix(in srgb,var(--text) 38%,transparent)}
+.inner .lb{position:absolute;top:5px;font-size:10px;font-weight:700;color:var(--muted);transform:translateX(-50%);white-space:nowrap}
+.inner .bar{position:absolute;top:22px;height:8px;border-radius:5px;background:var(--c);opacity:.85}
+.inner .rd{position:absolute;top:21px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px var(--glass-strong)}
+.needle{position:absolute;left:50%;bottom:0;width:3px;height:48px;margin-left:-1.5px;border-radius:3px;background:var(--text);pointer-events:none}
+.needle::before{content:"";position:absolute;left:50%;top:-5px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;background:var(--text)}
+.future{opacity:.18;filter:grayscale(1)}
+.cur{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--grad);border:3px solid #fff;
+  box-shadow:0 0 0 7px rgba(124,92,255,.22),0 4px 10px rgba(0,0,0,.3);pointer-events:none}
+.cur.drive{left:-17px;top:-17px;width:34px;height:34px;display:grid;place-items:center;font-size:18px;background:#fff;border-color:var(--c2)}
+
+/* 달력 */
+.cal-w{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;font-weight:700;color:var(--muted);margin:14px 0 6px}
+.cal-w span:first-child{color:var(--danger)} .cal-w span:last-child{color:var(--c1)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal button{aspect-ratio:1;border-radius:15px;font-weight:700;font-size:15px;position:relative;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.cal button:active{transform:scale(.92)}
+.cal .sun{color:var(--danger)} .cal .sat{color:var(--c1)}
+.cal .today{box-shadow:inset 0 0 0 2px var(--c1)}
+.cal .on{background:var(--text);color:var(--bg)!important}
+.cal .fut{opacity:.28;pointer-events:none}
+.cal i{position:absolute;bottom:6px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--c2);opacity:var(--o)}
+.cal .on i{background:var(--bg)}
+.cal-h{display:flex;align-items:center;justify-content:space-between}
+.cal-h h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.03em}
+.iconbtn:disabled{opacity:.3}
 
 .seg{display:flex;background:var(--faint);border-radius:13px;padding:3px;margin:14px 18px 6px}
 .seg button{flex:1;padding:7px 0;border-radius:10px;font-size:13px;font-weight:700;color:var(--muted)}
@@ -185,9 +219,8 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
     <div class="brand" id="dateBtn" role="button" aria-label="날짜 선택">
       <small><i id="statusDot"></i><span id="statusTxt">발자취</span></small>
       <h1><span id="title">오늘</span><span class="chev">▾</span></h1>
-      <input type="date" id="dateInput">
     </div>
-    <button class="iconbtn" id="todayBtn" aria-label="오늘로">
+    <button class="iconbtn" id="todayBtn" aria-label="달력 열기">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="4"/><path d="M8 3v4M16 3v4M3.5 10h17"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></svg>
     </button>
     <button class="iconbtn" id="settingsBtn" aria-label="설정">
@@ -214,8 +247,12 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
       <div class="tile"><div class="k">기록</div><div class="v" id="sCount">0<small>회</small></div></div>
       <div class="tile"><div class="k">장소</div><div class="v" id="sPlaces">0<small>곳</small></div></div>
     </div>
-    <div class="hours" id="hours"></div>
-    <div class="hours-l"><span>0시</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+    <div class="scrub">
+      <div class="scrub-h"><b id="scrubTime">--:--</b><span id="scrubWhere">좌우로 밀어 시간대별 위치를 확인하세요</span>
+        <button id="playBtn" aria-label="재생"><svg viewBox="0 0 24 24" fill="currentColor"><path id="playIco" d="M7 4.5v15l13-7.5z"/></svg></button></div>
+      <div class="ruler" id="ruler"><div class="track"><div class="inner" id="rulerInner"></div></div></div>
+      <i class="needle"></i>
+    </div>
   </div>
   <div class="seg" id="seg">
     <button class="on" data-tab="timeline">타임라인</button>
@@ -251,6 +288,16 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
 
     <div class="gt">자동 기록 (1시간마다)</div>
     <p class="note">iOS 웹앱은 백그라운드 위치 접근이 불가능하므로 <b>단축어 앱 → 자동화</b>가 매시 정각에 위치를 시트로 보냅니다. 설정 방법은 README 의 “단축어 자동화” 항목을 참고하세요.</p>
+  </div>
+</dialog>
+
+<dialog id="calDlg">
+  <div class="dlg">
+    <div class="cal-h"><button class="iconbtn" id="calPrev" aria-label="이전 달">‹</button><h2 id="calTitle"></h2><button class="iconbtn" id="calNext" aria-label="다음 달">›</button></div>
+    <div class="cal-w"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div class="cal" id="calGrid"></div>
+    <div class="row"><button class="btn" data-close>닫기</button><button class="btn pri" id="calToday">오늘</button></div>
+    <p class="note">점이 있는 날은 기록이 있는 날이에요. 진할수록 기록이 많아요.</p>
   </div>
 </dialog>
 
@@ -374,7 +421,7 @@ function demoDay(date){
 async function demoApi(action, p){
   await new Promise(r=>setTimeout(r,180));
   if(action==='day') return { ok:true, points: demoDay(p.date) };
-  if(action==='days'){ const o={}; for(let i=0;i<60;i++){ const ds=addDays(S.date,-i); const n=demoDay(ds).length; if(n) o[ds]=n; } return { ok:true, days:o }; }
+  if(action==='days'){ const o={}; for(let i=0;i<60;i++){ const ds=addDays(kstDate(new Date()),-i); const n=demoDay(ds).length; if(n) o[ds]=n; } return { ok:true, days:o }; }
   if(action==='places') return { ok:true, places: S.places.length ? S.places : DEMO_PLACES };
   if(action==='addPlace'){ const list=(S.places.length?S.places:[...DEMO_PLACES]).filter(x=>x.name!==p.name); list.push({ ...p, radius:150 }); return { ok:true, places:list }; }
   if(action==='deletePlace') return { ok:true };
@@ -406,7 +453,7 @@ async function initMap(){
 function kakaoAdapter(){
   const K=kakao.maps, el=$('#map');
   const map=new K.Map(el,{ center:new K.LatLng(37.45,126.98), level:9 });
-  const LL=p=>new K.LatLng(p.lat,p.lng), groups={};
+  const LL=p=>new K.LatLng(p.lat,p.lng), groups={}; let cur=null, curNode=null;
   const add=(g,o)=>(groups[g] ||= []).push(o);
   return {
     kind:'kakao', el,
@@ -425,6 +472,11 @@ function kakaoAdapter(){
     onZoom(fn){ K.event.addListener(map,'zoom_changed',()=>requestAnimationFrame(fn)); },
     onContext(fn){ K.event.addListener(map,'rightclick',e=>fn({ lat:e.latLng.getLat(), lng:e.latLng.getLng() })); },
     relayout(){ map.relayout(); },
+    cursor(p,html){
+      if(!p){ if(cur){ cur.setMap(null); cur=null; } return; }
+      if(!cur){ curNode=document.createElement('div'); curNode.className='ov'; cur=new K.CustomOverlay({ map, position:LL(p), content:curNode, xAnchor:0, yAnchor:0, zIndex:3000 }); }
+      cur.setPosition(LL(p)); if(curNode.innerHTML!==html) curNode.innerHTML=html;
+    },
   };
 }
 
@@ -435,7 +487,7 @@ function leafletAdapter(){
     tiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark.matches?'dark_all':'rastertiles/voyager'}/{z}/{x}/{y}{r}.png`,
       { subdomains:'abcd', maxZoom:20, attribution:'© OpenStreetMap © CARTO' }).addTo(map); };
   setTiles(); dark.addEventListener?.('change',setTiles);
-  const groups={}, grp=g=>groups[g] ||= L.layerGroup().addTo(map);
+  const groups={}, grp=g=>groups[g] ||= L.layerGroup().addTo(map); let cur=null;
   return {
     kind:'leaflet', el:map.getContainer(),
     clear(g){ grp(g).clearLayers(); },
@@ -452,6 +504,11 @@ function leafletAdapter(){
     onZoom(fn){ map.on('zoomend',fn); },
     onContext(fn){ map.on('contextmenu',e=>fn(e.latlng)); },
     relayout(){ map.invalidateSize(); },
+    cursor(p,html){
+      if(!p){ if(cur){ map.removeLayer(cur); cur=null; } return; }
+      if(!cur) cur=L.marker(p,{ icon:L.divIcon({ html:'<div class="ov"></div>', className:'', iconSize:[0,0] }), interactive:false, keyboard:false, zIndexOffset:3000 }).addTo(map);
+      cur.setLatLng(p); const el=cur.getElement()?.firstChild; if(el && el.innerHTML!==html) el.innerHTML=html;
+    },
   };
 }
 
@@ -501,7 +558,7 @@ function drawDay(fit=true){
   stays.forEach((s,i)=>{
     const last = i===stays.length-1;
     const label = s.pts.length>1 ? `${s.start.time}–${s.end.time}` : s.start.time;
-    const html = `<div class="stop${last&&isToday?' now':''}" style="--c:${s.color}">
+    const html = `<div class="stop${last&&isToday?' now':''}" data-m="${toMin(s.start.time)}" style="--c:${s.color}">
       <div class="pin${s.emoji?' emoji':''}">${s.emoji || (i+1)}</div><div class="lbl">${esc(label)}</div></div>`;
     M.html('stops', s.center, html, { z: last ? 1000 : 10+i, onClick:()=>focusStay(i) });
   });
@@ -536,12 +593,13 @@ function drawSteps(){
     const a=px[i-1], b=px[i], len=dist(a,b);
     if(len < 46) continue;                         // 같은 장소 체류 구간은 생략
     const ux=(b.x-a.x)/len, uy=(b.y-a.y)/len, ang=Math.atan2(uy,ux)*180/Math.PI+90;
+    const ma=toMin(pts[i-1].time), mb=toMin(pts[i].time), mAt=t=>Math.round(ma+(mb-ma)*t/len);
     if(isDrive(pts[i-1],pts[i])){                  // 차량 구간: 자동차 아이콘을 넓은 간격으로
       const cg=Math.max(64, gap*3), n=Math.max(1, Math.floor((len-30)/cg));
       for(let k=0;k<n;k++){
         const t = n===1 ? len/2 : 24 + (len-48)*k/(n-1);
         const c=lerpColor((i-1 + t/len)/(pts.length-1));
-        M.html('steps', M.fromPx(a.x+ux*t, a.y+uy*t), `<div class="car" style="transform:rotate(${ang}deg)">${CAR(c)}</div>`, { z:2 });
+        M.html('steps', M.fromPx(a.x+ux*t, a.y+uy*t), `<div class="car" data-m="${mAt(t)}" style="transform:rotate(${ang}deg)">${CAR(c)}</div>`, { z:2 });
       }
       continue;
     }
@@ -549,9 +607,10 @@ function drawSteps(){
       const side = step++%2 ? 1 : -1;
       const x=a.x+ux*t - uy*off*side, y=a.y+uy*t + ux*off*side;
       const c=lerpColor((i-1 + t/len)/(pts.length-1));
-      M.html('steps', M.fromPx(x,y), `<div class="step" style="transform:rotate(${ang}deg)">${FOOT(c, side>0)}</div>`, { z:1 });
+      M.html('steps', M.fromPx(x,y), `<div class="step" data-m="${mAt(t)}" style="transform:rotate(${ang}deg)">${FOOT(c, side>0)}</div>`, { z:1 });
     }
   }
+  applyTime(S.T, false);
 }
 
 function sheetPeek(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-peek'))||250; }
@@ -574,8 +633,7 @@ function renderStats(){
   $('#sDist').innerHTML = `${(totalDistance(pts)/1000).toFixed(1)}<small>km</small>`;
   $('#sCount').innerHTML = `${pts.length}<small>회</small>`;
   $('#sPlaces').innerHTML = `${new Set(stays.map(s=>s.name)).size}<small>곳</small>`;
-  const hrs=new Set(pts.map(p=>+p.time.slice(0,2)));
-  $('#hours').innerHTML = Array.from({length:24},(_,h)=>`<i class="${hrs.has(h)?'on':''}" style="--c:${lerpColor(h/23)}" title="${h}시"></i>`).join('');
+  renderRuler();
   setPeek();
 }
 function renderList(){
@@ -634,7 +692,6 @@ function renderTitle(){
   $('#title').textContent = `${m}월 ${d}일 ${DOW[dow(S.date)]}요일${rel?' · '+rel:''}`;
   $('#statusTxt').textContent = demo() ? '데모 모드 · 설정에서 시트 연결' : `구글 시트 연결됨${y!==new Date().getFullYear()?' · '+y+'년':''}`;
   $('#statusDot').className = demo() ? 'demo' : '';
-  $('#dateInput').value=S.date; $('#dateInput').max=today;
 }
 function selectDate(d){ if(d===S.date) return; S.date=d; renderStrip(); loadDay(); }
 
@@ -689,9 +746,90 @@ $('#locateBtn').onclick=async()=>{
 };
 
 /* ═════════════ 헤더 동작 ═════════════ */
-$('#todayBtn').onclick=()=>{ S.date===kstDate(new Date()) ? fitDay() : selectDate(kstDate(new Date())); };
-$('#dateBtn').onclick=()=>{ const i=$('#dateInput'); try{ i.showPicker(); }catch{ i.focus(); i.click(); } };
-$('#dateInput').onchange=e=>{ if(e.target.value) selectDate(e.target.value); };
+/* ═════════════ 달력 ═════════════ */
+let calMonth='';
+const shiftMonth=(ym,n)=>{ let [y,m]=ym.split('-').map(Number); m+=n; while(m<1){m+=12;y--;} while(m>12){m-=12;y++;} return `${y}-${String(m).padStart(2,'0')}`; };
+function renderCal(){
+  const [y,m]=calMonth.split('-').map(Number), today=kstDate(new Date());
+  const first=dow(`${calMonth}-01`), days=new Date(Date.UTC(y,m,0)).getUTCDate();
+  const max=Math.max(1,...Object.values(S.days));
+  $('#calTitle').textContent=`${y}년 ${m}월`;
+  let h=''; for(let i=0;i<first;i++) h+='<span></span>';
+  for(let d=1; d<=days; d++){
+    const ds=`${calMonth}-${String(d).padStart(2,'0')}`, n=S.days[ds]||0, w=(first+d-1)%7;
+    const cls=[ds===S.date&&'on', ds===today&&'today', ds>today&&'fut', w===0?'sun':w===6?'sat':''].filter(Boolean).join(' ');
+    h+=`<button data-d="${ds}" class="${cls}" aria-label="${m}월 ${d}일${n?` 기록 ${n}회`:''}">${d}${n?`<i style="--o:${(.35+.65*n/max).toFixed(2)}"></i>`:''}</button>`;
+  }
+  $('#calGrid').innerHTML=h;
+  $('#calNext').disabled = calMonth >= today.slice(0,7);
+}
+function openCal(){ calMonth=S.date.slice(0,7); renderCal(); $('#calDlg').showModal(); }
+$('#todayBtn').onclick=openCal;
+$('#dateBtn').onclick=openCal;
+$('#calPrev').onclick=()=>{ calMonth=shiftMonth(calMonth,-1); renderCal(); };
+$('#calNext').onclick=()=>{ calMonth=shiftMonth(calMonth,1); renderCal(); };
+$('#calGrid').onclick=e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; $('#calDlg').close(); selectDate(b.dataset.d); };
+$('#calToday').onclick=()=>{ $('#calDlg').close(); selectDate(kstDate(new Date())); };
+$('#calDlg').addEventListener('click',e=>{ if(e.target===$('#calDlg') || e.target.closest('[data-close]')) $('#calDlg').close(); });
+
+/* ═════════════ 시간 스크러버 ═════════════ */
+const PX_H = 64;                                   // 1시간 = 64px
+const toMin = t => { const [h,m]=String(t||'0:0').split(':').map(Number); return h*60+(m||0); };
+const fmtMin = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(Math.floor(m%60)).padStart(2,'0')}`;
+S.T = 0;
+function renderRuler(){
+  const pts=S.points, el=$('#rulerInner');
+  let h='';
+  for(let i=0;i<=48;i++){ const x=i*PX_H/2; h+=`<i class="tk${i%2?'':' h'}" style="left:${x}px"></i>`; if(i%2===0) h+=`<span class="lb" style="left:${x}px">${i/2}시</span>`; }
+  stays.forEach(st=>{ if(st.pts.length>1){ const a=toMin(st.start.time), b=toMin(st.end.time);
+    h+=`<i class="bar" style="left:${a*PX_H/60}px;width:${(b-a)*PX_H/60}px;--c:${st.color}"></i>`; } });
+  pts.forEach((p,i)=>{ h+=`<i class="rd" style="left:${toMin(p.time)*PX_H/60}px;--c:${lerpColor(pts.length>1?i/(pts.length-1):0)}"></i>`; });
+  el.innerHTML=h; el.style.width=(24*PX_H)+'px';
+  // 기본 시각: 오늘이면 지금, 지난 날이면 마지막 기록
+  const nowM=Math.floor((Date.now()+9*3600e3)%86400000/60000);
+  const T = S.date===kstDate(new Date()) ? nowM : (pts.length ? toMin(pts[pts.length-1].time) : 12*60);
+  setRuler(T);
+}
+function setRuler(T){ const r=$('#ruler'); r.scrollLeft=T*PX_H/60; applyTime(T); }
+function nameOfPoint(p){ const st=stays.find(s=>s.pts.includes(p)); return st ? st.name : shortAddr(p.address)||'이동 중'; }
+function stateAt(T){
+  const pts=S.points; if(!pts.length) return null;
+  const ms=pts.map(p=>toMin(p.time)), n=pts.length;
+  if(T < ms[0]) return { pos:pts[0], label:`${pts[0].time} 첫 기록 전`, early:true };
+  if(T >= ms[n-1]) return { pos:pts[n-1], label:`📍 ${nameOfPoint(pts[n-1])}` };
+  let i=0; while(i<n-2 && T>=ms[i+1]) i++;
+  const a=pts[i], b=pts[i+1], f=(T-ms[i])/Math.max(1,ms[i+1]-ms[i]);
+  if(hav(a,b) < 150) return { pos:a, label:`📍 ${nameOfPoint(a)}` };
+  const drive=isDrive(a,b);
+  return { pos:{ lat:a.lat+(b.lat-a.lat)*f, lng:a.lng+(b.lng-a.lng)*f }, drive,
+           label:`${drive?'🚗':'👣'} ${nameOfPoint(a)} → ${nameOfPoint(b)}` };
+}
+function applyTime(T, updateCursor=true){
+  T=Math.max(0, Math.min(1440, T)); S.T=T;
+  $('#scrubTime').textContent = fmtMin(Math.min(T,1439));
+  document.querySelectorAll('#map [data-m]').forEach(el=>el.classList.toggle('future', +el.dataset.m > T));
+  if(!M) return;
+  const st=stateAt(T);
+  $('#scrubWhere').textContent = st ? st.label : '이 날은 기록이 없어요';
+  if(updateCursor || st) M.cursor(st && st.pos, st && st.drive ? '<div class="cur drive">🚗</div>' : '<div class="cur"></div>');
+}
+(()=>{
+  const r=$('#ruler'); let raf=0, playing=0, last=0;
+  r.addEventListener('scroll',()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; applyTime(r.scrollLeft/PX_H*60); }); },{ passive:true });
+  const stop=()=>{ if(!playing) return; cancelAnimationFrame(playing); playing=0; $('#playIco').setAttribute('d','M7 4.5v15l13-7.5z'); };
+  r.addEventListener('pointerdown',stop); r.addEventListener('touchstart',stop,{ passive:true });
+  $('#playBtn').onclick=()=>{
+    if(playing) return stop();
+    const pts=S.points; if(!pts.length) return toast('재생할 기록이 없어요');
+    const startM=toMin(pts[0].time), endM=toMin(pts[pts.length-1].time);
+    if(S.T>=endM || S.T<startM) setRuler(Math.max(0,startM-15));
+    $('#playIco').setAttribute('d','M6 4h4v16H6zM14 4h4v16h-4z'); last=performance.now();
+    const tick=now=>{ const T=S.T+(now-last)/1000*90; last=now;   // 1초 = 90분
+      if(T>=endM){ setRuler(endM); stop(); return; }
+      r.scrollLeft=T*PX_H/60; applyTime(T); playing=requestAnimationFrame(tick); };
+    playing=requestAnimationFrame(tick);
+  };
+})();
 
 /* ═════════════ 바텀시트 드래그 ═════════════ */
 const sheet=$('#sheet');
@@ -700,7 +838,7 @@ let sheetState='peek';
 function setSheet(st){ sheetState=st; sheet.style.transform = st==='full' ? 'translateY(0)' : ''; }
 (()=>{
   let y0=null, base=0, moved=0, t0=0;
-  const down=e=>{ y0=e.clientY; t0=Date.now(); moved=0; base = sheetState==='full' ? 0 : sheet.offsetHeight - sheetPeek(); sheet.classList.add('dragging'); $('#grab').setPointerCapture(e.pointerId); };
+  const down=e=>{ if(e.target.closest('.ruler, button')) return; y0=e.clientY; t0=Date.now(); moved=0; base = sheetState==='full' ? 0 : sheet.offsetHeight - sheetPeek(); sheet.classList.add('dragging'); $('#grab').setPointerCapture(e.pointerId); };
   const move=e=>{ if(y0==null) return; moved=e.clientY-y0; const y=Math.min(sheet.offsetHeight-sheetPeek()+40, Math.max(0, base+moved)); sheet.style.transform=`translateY(${y}px)`; };
   const up=()=>{ if(y0==null) return; sheet.classList.remove('dragging'); const v=moved/(Date.now()-t0);
     if(Math.abs(moved)<6) setSheet(sheetState==='full'?'peek':'full');
