@@ -39,11 +39,13 @@
 html{background:#fcfcfe} /* iOS 홈 화면 앱 하단 띠가 패널과 같은 색으로 보이도록 */
 @media (prefers-color-scheme: dark){html{background:#1c1a28}}
 body{background:var(--bg)}
-html,body{margin:0;height:100%;color:var(--text);overflow:hidden;
+html{height:100%}
+body{position:relative;height:var(--app-h,100%)}
+html,body{margin:0;min-height:100%;color:var(--text);overflow:hidden;
   font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;letter-spacing:-.01em;overscroll-behavior:none}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
-#map{position:fixed;inset:0;background:var(--bg)}
+#map{position:absolute;inset:0;background:var(--bg)}
 .leaflet-container{font:inherit}
 .leaflet-control-attribution{font-size:9px;background:transparent!important;opacity:.55;margin-bottom:calc(var(--sheet-peek,250px) + var(--safe-b) + 4px)!important}
 .leaflet-control-zoom{display:none}
@@ -56,7 +58,7 @@ body.kakao #map{bottom:calc(var(--sheet-peek,250px) + var(--safe-b) - 2px)} /* �
   -webkit-backdrop-filter:blur(28px) saturate(190%);backdrop-filter:blur(28px) saturate(190%)}
 
 /* ── Header ── */
-header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index:500;border-radius:24px;padding:12px 12px 10px 18px}
+header{position:absolute;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index:500;border-radius:24px;padding:12px 12px 10px 18px}
 .hrow{display:flex;align-items:center;gap:10px}
 .brand{flex:1;min-width:0}
 .brand small{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
@@ -80,7 +82,7 @@ header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index
 .chip.future{opacity:.3;pointer-events:none}
 
 /* ── FABs ── */
-.fabs{position:fixed;right:14px;z-index:450;display:flex;flex-direction:column;gap:10px;bottom:calc(var(--sheet-peek,250px) + var(--safe-b) + 14px);transition:bottom .35s cubic-bezier(.2,.8,.2,1)}
+.fabs{position:absolute;right:14px;z-index:450;display:flex;flex-direction:column;gap:10px;bottom:calc(var(--sheet-peek,250px) + var(--safe-b) + 14px);transition:bottom .35s cubic-bezier(.2,.8,.2,1)}
 .fab{width:50px;height:50px;border-radius:18px;display:grid;place-items:center;transition:transform .15s}
 .fab svg{width:22px;height:22px}
 .fab.primary{background:var(--grad);color:#fff;border:0;box-shadow:0 12px 28px -8px color-mix(in srgb,var(--c2) 70%,transparent)}
@@ -88,8 +90,8 @@ header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── Bottom sheet ── */
-.sheet{position:fixed;left:0;right:0;bottom:calc(-1 * var(--gap,0px));z-index:600;height:calc(88dvh - var(--safe-t) + var(--gap,0px));border-radius:30px 30px 0 0;
-  transform:translateY(calc(100% - var(--sheet-peek,250px) - var(--safe-b) - var(--gap,0px)));transition:transform .4s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:600;height:calc(88% - var(--safe-t));border-radius:30px 30px 0 0;
+  transform:translateY(calc(100% - var(--sheet-peek,250px) - var(--safe-b)));transition:transform .4s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;
   background:var(--glass-strong);border-bottom:0}
 .sheet.dragging{transition:none}
 /* iOS 홈 화면 앱에서 고정 영역이 화면 끝보다 위에서 끝나는 문제 → 패널 아래를 같은 색으로 이어 붙임 */
@@ -937,14 +939,15 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.12-b';
+const APP_VERSION='2026.11.12-c';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
   const portraitH = Math.max(screen.height, screen.width) === screen.height ? screen.height : screen.width;
   const raw = (innerHeight < innerWidth) ? 0 : portraitH - innerHeight;
   const gap = standalone && raw > 0 && raw < 160 ? raw : 0;
-  document.documentElement.style.setProperty('--gap', gap+'px');
+  /* 화면에 고정(position:fixed)하지 않고, 문서 높이를 실제 화면 높이로 지정해 그 안에 배치 */
+  document.documentElement.style.setProperty('--app-h', (innerHeight+gap)+'px');
   const probe=document.createElement('div'); probe.style.cssText='position:fixed;bottom:0;height:env(safe-area-inset-bottom);top:env(safe-area-inset-top);visibility:hidden';
   document.body.appendChild(probe); const sb=getComputedStyle(probe).height, st=getComputedStyle(probe).top; probe.remove();
   const d=document.getElementById('diag');
