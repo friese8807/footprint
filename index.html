@@ -259,6 +259,9 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
 <script>
 'use strict';
 /* ═════════════ 설정 & 상태 ═════════════ */
+// 카카오맵 JavaScript 키 (등록 도메인 https://friese8807.github.io 에서만 동작하는 공개용 키)
+const DEFAULT_KAKAO_KEY = 'bf48e4974c18098bec8781cfdb3a9919';
+const kakaoKey = () => (S.cfg.kakaoKey ?? DEFAULT_KAKAO_KEY).trim();  // 설정에서 비우면 기본 지도
 const LS = {
   get(k, d){ try{ const v = localStorage.getItem('fp.'+k); return v==null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('fp.'+k, JSON.stringify(v)); }catch{} },
@@ -386,7 +389,7 @@ function loadScript(src){
   return new Promise((ok,no)=>{ const el=document.createElement('script'); el.src=src; el.onload=ok; el.onerror=()=>no(new Error('script')); document.head.appendChild(el); });
 }
 async function initMap(){
-  const key=(S.cfg.kakaoKey||'').trim();
+  const key=kakaoKey();
   if(key){
     try{
       await loadScript(`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false`);
@@ -687,7 +690,7 @@ $('#seg').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.tab=
 
 /* ═════════════ 설정 & 장소 ═════════════ */
 const dlg=$('#settings');
-$('#settingsBtn').onclick=()=>{ $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; $('#cfgKakao').value=S.cfg.kakaoKey||''; renderPlaces(); dlg.showModal(); };
+$('#settingsBtn').onclick=()=>{ $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; $('#cfgKakao').value=kakaoKey(); renderPlaces(); dlg.showModal(); };
 dlg.addEventListener('click',e=>{ if(e.target===dlg || e.target.closest('[data-close]')) dlg.close(); });
 $('#testBtn').onclick=async()=>{
   const url=$('#cfgUrl').value.trim(), token=$('#cfgToken').value.trim();
@@ -697,7 +700,7 @@ $('#testBtn').onclick=async()=>{
   catch(e){ toast('❌ 연결 실패 — URL/배포 권한을 확인하세요'); }
 };
 $('#saveBtn').onclick=()=>{
-  const prevKey=S.cfg.kakaoKey||'';
+  const prevKey=kakaoKey();
   S.cfg={ url:$('#cfgUrl').value.trim(), token:$('#cfgToken').value.trim(), kakaoKey:$('#cfgKakao').value.trim() }; LS.set('cfg',S.cfg);
   if(S.cfg.kakaoKey!==prevKey){ location.reload(); return; }  // 지도 엔진이 바뀌면 새로 고침
   if(demo()) S.places=[]; dayCache.clear(); dlg.close(); toast('저장했어요');
