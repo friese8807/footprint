@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>발자취</title>
+<meta name="description" content="한 시간마다 기록되는 나의 하루 발자취">
+<meta name="theme-color" content="#f4f2fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0b12" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="발자취">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#f4f2fb; --text:#0d0c14; --muted:#6c6a7c; --faint:rgba(13,12,20,.08);
+  --glass:rgba(255,255,255,.62); --glass-strong:rgba(255,255,255,.82);
+  --glass-line:rgba(255,255,255,.75); --shadow:0 10px 40px -12px rgba(40,20,90,.28), 0 2px 6px rgba(40,20,90,.06);
+  --c1:#7c5cff; --c2:#ff5f8f; --c3:#ffa94d; --ok:#22c38e; --danger:#ff4d5e;
+  --tile:rgba(255,255,255,.7); --radius:26px;
+  --grad:linear-gradient(135deg,var(--c1),var(--c2) 60%,var(--c3));
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0c0b12; --text:#f4f3fa; --muted:#9a98ad; --faint:rgba(255,255,255,.08);
+    --glass:rgba(24,22,34,.58); --glass-strong:rgba(28,26,40,.86);
+    --glass-line:rgba(255,255,255,.12); --shadow:0 12px 44px -10px rgba(0,0,0,.7);
+    --tile:rgba(255,255,255,.06); color-scheme:dark;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);overflow:hidden;
+  font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;letter-spacing:-.01em;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+#map{position:fixed;inset:0;background:var(--bg)}
+.leaflet-container{font:inherit}
+.leaflet-control-attribution{font-size:9px;background:transparent!important;opacity:.55;margin-bottom:calc(var(--sheet-peek,250px) + var(--safe-b) + 4px)!important}
+.leaflet-control-zoom{display:none}
+
+.glass{background:var(--glass);border:1px solid var(--glass-line);box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.35);
+  -webkit-backdrop-filter:blur(28px) saturate(190%);backdrop-filter:blur(28px) saturate(190%)}
+
+/* ── Header ── */
+header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index:500;border-radius:24px;padding:12px 12px 10px 18px}
+.hrow{display:flex;align-items:center;gap:10px}
+.brand{flex:1;min-width:0}
+.brand small{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.brand small i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.brand small i.demo{background:var(--c3);box-shadow:0 0 0 3px color-mix(in srgb,var(--c3) 25%,transparent)}
+.brand h1{margin:2px 0 0;font-size:22px;font-weight:800;letter-spacing:-.03em;display:flex;align-items:center;gap:6px}
+.brand h1 .chev{font-size:14px;opacity:.5}
+.iconbtn{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;background:var(--tile);border:1px solid var(--glass-line)}
+.iconbtn svg{width:20px;height:20px}
+.iconbtn:active,.chip:active,.fab:active,.tl-item:active{transform:scale(.94)}
+#dateInput{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+
+.strip{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x proximity;margin:10px -6px 0 -10px;padding:2px 6px 2px 10px;scrollbar-width:none;
+  mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+.strip::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;width:44px;padding:7px 0 6px;border-radius:15px;text-align:center;scroll-snap-align:center;transition:transform .15s,background .2s;position:relative}
+.chip b{display:block;font-size:16px;font-weight:700;line-height:1.2}
+.chip span{font-size:10.5px;font-weight:600;color:var(--muted)}
+.chip.sun span{color:var(--danger)} .chip.sat span{color:var(--c1)}
+.chip u{position:absolute;left:50%;bottom:2px;width:4px;height:4px;border-radius:50%;transform:translateX(-50%);background:var(--c2);text-decoration:none}
+.chip.on{background:var(--text);color:var(--bg)} .chip.on span{color:inherit;opacity:.7} .chip.on u{background:var(--bg)}
+.chip.future{opacity:.3;pointer-events:none}
+
+/* ── FABs ── */
+.fabs{position:fixed;right:14px;z-index:450;display:flex;flex-direction:column;gap:10px;bottom:calc(var(--sheet-peek,250px) + var(--safe-b) + 14px);transition:bottom .35s cubic-bezier(.2,.8,.2,1)}
+.fab{width:50px;height:50px;border-radius:18px;display:grid;place-items:center;transition:transform .15s}
+.fab svg{width:22px;height:22px}
+.fab.primary{background:var(--grad);color:#fff;border:0;box-shadow:0 12px 28px -8px color-mix(in srgb,var(--c2) 70%,transparent)}
+.fab.busy svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Bottom sheet ── */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:600;height:calc(88dvh - var(--safe-t));border-radius:30px 30px 0 0;
+  transform:translateY(calc(100% - var(--sheet-peek,250px) - var(--safe-b)));transition:transform .4s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;
+  background:var(--glass-strong);border-bottom:0}
+.sheet.dragging{transition:none}
+.grab{padding:8px 18px 0;touch-action:none;cursor:grab}
+.handle{width:40px;height:5px;border-radius:9px;background:var(--faint);margin:0 auto 12px;background:color-mix(in srgb,var(--text) 18%,transparent)}
+.bento{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px}
+.tile{background:var(--tile);border:1px solid var(--glass-line);border-radius:20px;padding:12px 13px;min-width:0}
+.tile .k{font-size:11.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:4px}
+.tile .v{font-size:26px;font-weight:800;letter-spacing:-.04em;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tile .v small{font-size:13px;font-weight:700;color:var(--muted);margin-left:2px;letter-spacing:0}
+.tile.hero{background:var(--grad);color:#fff;border:0;position:relative;overflow:hidden}
+.tile.hero .k{color:rgba(255,255,255,.85)} .tile.hero .v small{color:rgba(255,255,255,.8)}
+.tile.hero::after{content:"";position:absolute;right:-20px;top:-30px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.18)}
+.hours{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:10px}
+.hours i{height:16px;border-radius:5px;background:var(--faint)}
+.hours i.on{background:var(--c)}
+.hours-l{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-weight:600;margin:4px 1px 0}
+
+.seg{display:flex;background:var(--faint);border-radius:13px;padding:3px;margin:14px 18px 6px}
+.seg button{flex:1;padding:7px 0;border-radius:10px;font-size:13px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--glass-strong);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.scroll{overflow-y:auto;flex:1;padding:6px 18px calc(var(--safe-b) + 24px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+
+.tl{position:relative}
+.tl-item{display:flex;gap:12px;align-items:center;padding:10px 4px;border-radius:16px;transition:transform .12s;width:100%;text-align:left}
+.dot{flex:0 0 38px;height:38px;border-radius:14px;display:grid;place-items:center;font-size:17px;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);font-weight:800;font-size:14px}
+.dot.emoji{font-size:19px}
+.tl-body{flex:1;min-width:0}
+.tl-body b{display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-body span{display:block;font-size:12.5px;color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dur{font-size:12px;font-weight:700;padding:5px 9px;border-radius:10px;background:var(--faint);white-space:nowrap}
+.move{display:flex;align-items:center;gap:8px;margin-left:22px;padding:2px 0 2px 26px;border-left:2px dashed color-mix(in srgb,var(--muted) 35%,transparent);font-size:12px;color:var(--muted);font-weight:600;height:30px}
+.move svg{width:14px;height:14px;opacity:.7}
+
+.rec{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--faint)}
+.rec .t{font-weight:800;font-variant-numeric:tabular-nums;width:46px}
+.rec .a{flex:1;min-width:0;font-size:13px}
+.rec .a div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec .a small{color:var(--muted);font-size:11.5px}
+.rec button{width:30px;height:30px;border-radius:10px;background:var(--faint);color:var(--muted);font-size:15px}
+
+.empty{text-align:center;padding:30px 10px;color:var(--muted);font-size:14px;line-height:1.6}
+.empty .big{font-size:42px;margin-bottom:6px}
+
+/* ── Map markers ── */
+.step{pointer-events:none}
+.step svg{display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+.stop{position:relative}
+.stop .pin{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:13px;display:grid;place-items:center;
+  background:#fff;border:2.5px solid var(--c);color:var(--c);font-weight:800;font-size:13px;box-shadow:0 6px 16px -4px rgba(0,0,0,.35)}
+.stop .pin.emoji{font-size:17px}
+.stop .lbl{position:absolute;left:21px;top:-11px;white-space:nowrap;padding:3px 8px;border-radius:9px;font-size:11.5px;font-weight:700;
+  background:var(--glass-strong);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.15);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.stop.now .pin::after{content:"";position:absolute;inset:-9px;border-radius:17px;border:2px solid var(--c);animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{from{opacity:.9;transform:scale(.8)}to{opacity:0;transform:scale(1.4)}}
+.me{width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#2f80ff;border:3px solid #fff;box-shadow:0 0 0 8px rgba(47,128,255,.2)}
+
+/* ── Dialog ── */
+dialog{border:0;padding:0;width:min(560px,100%);max-height:92dvh;margin:auto auto 0;border-radius:28px 28px 0 0;background:var(--glass-strong);color:var(--text);
+  -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(10,8,20,.35)}
+dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.dlg{padding:18px 18px calc(var(--safe-b) + 22px);overflow-y:auto;max-height:92dvh}
+.dlg-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.dlg-h h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.03em}
+.group{background:var(--tile);border:1px solid var(--glass-line);border-radius:20px;padding:4px 14px;margin:14px 0 6px}
+.gt{font-size:12.5px;font-weight:700;color:var(--muted);margin:18px 4px 0}
+.field{display:block;padding:10px 0;border-bottom:1px solid var(--faint)}
+.field:last-child{border-bottom:0}
+.field span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.field input{width:100%;border:0;background:transparent;color:var(--text);font:inherit;font-size:15px;outline:none;padding:2px 0}
+.row{display:flex;gap:8px;margin-top:10px}
+.btn{flex:1;padding:13px;border-radius:15px;font-weight:700;font-size:15px;background:var(--faint)}
+.btn.pri{background:var(--text);color:var(--bg)}
+.btn.grad{background:var(--grad);color:#fff}
+.place{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--faint)}
+.place:last-child{border-bottom:0}
+.place .e{font-size:20px} .place .n{flex:1;font-weight:700} .place .n small{display:block;font-weight:500;font-size:11.5px;color:var(--muted)}
+.place button{color:var(--danger);font-size:13px;font-weight:700}
+.note{font-size:12.5px;line-height:1.65;color:var(--muted);margin:8px 4px 0}
+.note b{color:var(--text)}
+.emojis{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 10px}
+.emojis button{width:38px;height:38px;border-radius:12px;font-size:19px;background:var(--faint)}
+.emojis button.on{outline:2px solid var(--c1);background:color-mix(in srgb,var(--c1) 15%,transparent)}
+
+.toast{position:fixed;left:50%;top:calc(var(--safe-t) + 14px);z-index:2000;transform:translate(-50%,-140%);padding:11px 18px;border-radius:18px;font-size:14px;font-weight:700;
+  transition:transform .4s cubic-bezier(.2,.8,.2,1);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+.toast.show{transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<header class="glass">
+  <div class="hrow">
+    <div class="brand" id="dateBtn" role="button" aria-label="날짜 선택">
+      <small><i id="statusDot"></i><span id="statusTxt">발자취</span></small>
+      <h1><span id="title">오늘</span><span class="chev">▾</span></h1>
+      <input type="date" id="dateInput">
+    </div>
+    <button class="iconbtn" id="todayBtn" aria-label="오늘로">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="4"/><path d="M8 3v4M16 3v4M3.5 10h17"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></svg>
+    </button>
+    <button class="iconbtn" id="settingsBtn" aria-label="설정">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>
+    </button>
+  </div>
+  <div class="strip" id="strip"></div>
+</header>
+
+<div class="fabs">
+  <button class="fab glass" id="locateBtn" aria-label="내 위치">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 3.5 3.5 10.6l7.1 2.8 2.8 7.1z"/></svg>
+  </button>
+  <button class="fab primary" id="recordBtn" aria-label="지금 위치 기록">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+
+<section class="sheet glass" id="sheet">
+  <div class="grab" id="grab">
+    <div class="handle"></div>
+    <div class="bento">
+      <div class="tile hero"><div class="k">이동 거리</div><div class="v" id="sDist">0<small>km</small></div></div>
+      <div class="tile"><div class="k">기록</div><div class="v" id="sCount">0<small>회</small></div></div>
+      <div class="tile"><div class="k">장소</div><div class="v" id="sPlaces">0<small>곳</small></div></div>
+    </div>
+    <div class="hours" id="hours"></div>
+    <div class="hours-l"><span>0시</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+  </div>
+  <div class="seg" id="seg">
+    <button class="on" data-tab="timeline">타임라인</button>
+    <button data-tab="records">기록 목록</button>
+  </div>
+  <div class="scroll" id="list"></div>
+</section>
+
+<dialog id="settings">
+  <div class="dlg">
+    <div class="dlg-h"><h2>설정</h2><button class="iconbtn" data-close aria-label="닫기">✕</button></div>
+
+    <div class="gt">구글 시트 연결 (Apps Script 웹 앱)</div>
+    <div class="group">
+      <label class="field"><span>웹 앱 URL</span><input id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
+      <label class="field"><span>토큰 (Code.gs 의 CONFIG.TOKEN)</span><input id="cfgToken" type="password" placeholder="비밀 토큰" autocomplete="off"></label>
+    </div>
+    <div class="row"><button class="btn" id="testBtn">연결 테스트</button><button class="btn pri" id="saveBtn">저장</button></div>
+    <p class="note">URL 을 비워두면 <b>데모 모드</b>로 예시 데이터가 표시됩니다.</p>
+
+    <div class="gt">자주 가는 장소</div>
+    <div class="group" id="placeList"></div>
+    <div class="group">
+      <label class="field"><span>장소 이름</span><input id="plName" placeholder="예: 집, 회사, 숙소" maxlength="20"></label>
+      <div class="emojis" id="emojis"></div>
+    </div>
+    <div class="row"><button class="btn grad" id="addHereBtn">현재 위치로 등록</button><button class="btn" id="addCenterBtn">지도 중심으로 등록</button></div>
+    <p class="note">지도를 <b>길게 누르면</b> 그 지점을 바로 장소로 등록할 수 있어요. 등록된 장소 반경 150m 안의 기록은 장소 이름으로 묶여 표시됩니다.</p>
+
+    <div class="gt">자동 기록 (1시간마다)</div>
+    <p class="note">iOS 웹앱은 백그라운드 위치 접근이 불가능하므로 <b>단축어 앱 → 자동화</b>가 매시 정각에 위치를 시트로 보냅니다. 설정 방법은 README 의 “단축어 자동화” 항목을 참고하세요.</p>
+  </div>
+</dialog>
+
+<div class="toast glass" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+'use strict';
+/* ═════════════ 설정 & 상태 ═════════════ */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem('fp.'+k); return v==null ? d : JSON.parse(v); }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem('fp.'+k, JSON.stringify(v)); }catch{} },
+};
+const S = {
+  cfg: LS.get('cfg', { url:'', token:'' }),
+  date: kstDate(new Date()),
+  points: [], places: LS.get('places', []), days: LS.get('days', {}),
+  tab: 'timeline', emoji: '🏠',
+};
+const demo = () => !S.cfg.url;
+const $ = s => document.querySelector(s);
+const DOW = ['일','월','화','수','목','금','토'];
+const EMOJIS = ['🏠','💼','🛏️','🏫','☕️','🍽️','🏋️','🌳','⛪️','🏥','🛒','📍'];
+
+function kstDate(d){ return new Date(d.getTime() + 9*3600e3).toISOString().slice(0,10); }
+function addDays(s, n){ const d = new Date(s+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+function dow(s){ return new Date(s+'T00:00:00Z').getUTCDay(); }
+function hav(a, b){
+  const R=6371000, r=Math.PI/180, dLa=(b.lat-a.lat)*r, dLo=(b.lng-a.lng)*r;
+  const x=Math.sin(dLa/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function lerpColor(t){
+  const stops=[[124,92,255],[255,95,143],[255,169,77]];
+  const x=Math.min(1,Math.max(0,t))*(stops.length-1), i=Math.min(stops.length-2,Math.floor(x)), f=x-i;
+  const c=stops[i].map((v,k)=>Math.round(v+(stops[i+1][k]-v)*f));
+  return `rgb(${c})`;
+}
+function fmtDur(ms){
+  const m=Math.round(ms/60000); if(m<60) return `${m}분`;
+  const h=Math.floor(m/60), r=m%60; return r ? `${h}시간 ${r}분` : `${h}시간`;
+}
+function shortAddr(a){ if(!a) return ''; const t=a.split(/\s+/); return t.length>3 ? t.slice(1).join(' ') : a; }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400); }
+
+/* ═════════════ API (Apps Script) ═════════════ */
+async function api(action, params={}, post=false){
+  if(demo()) return demoApi(action, params);
+  const u = new URL(S.cfg.url);
+  let res;
+  if(post){
+    // text/plain → CORS preflight 없이 Apps Script 로 전송
+    res = await fetch(u, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action, token:S.cfg.token, ...params }) });
+  }else{
+    u.search = new URLSearchParams({ action, token:S.cfg.token, ...params, _:Date.now() });
+    res = await fetch(u);
+  }
+  const j = await res.json();
+  if(!j.ok) throw new Error(j.error || '요청 실패');
+  return j;
+}
+
+/* 오프라인 대기열: 전송 실패한 기록은 저장했다가 재전송 */
+async function flushQueue(){
+  const q = LS.get('queue', []); if(!q.length || demo()) return;
+  const rest=[];
+  for(const item of q){ try{ await api('log', item, true); }catch{ rest.push(item); } }
+  LS.set('queue', rest);
+  if(rest.length < q.length) toast(`대기 중이던 기록 ${q.length-rest.length}건 전송 완료`);
+}
+
+/* ═════════════ 데모 데이터 ═════════════ */
+const DEMO_PLACES = [
+  { name:'숙소', emoji:'🛏️', lat:37.5601, lng:126.8259, radius:150 },
+  { name:'회사', emoji:'💼', lat:37.5622, lng:126.8338, radius:150 },
+  { name:'집',   emoji:'🏠', lat:37.2752, lng:127.1162, radius:150 },
+];
+const demoStore = { extra:{} };
+function rng(seed){ let s=seed; return ()=>((s=Math.imul(s^s>>>15,1|s)+0x6D2B79F5|0, (s>>>0)/4294967296)); }
+function demoDay(date){
+  if(date > kstDate(new Date())) return [];
+  const r = rng(+date.replace(/-/g,'')), d = dow(date);
+  const P = Object.fromEntries(DEMO_PLACES.map(p=>[p.name,p]));
+  const spots = {
+    lunch:{lat:37.5609,lng:126.8301,addr:'서울특별시 강서구 마곡동 758'},
+    cafe:{lat:37.5662,lng:126.8273,addr:'서울특별시 강서구 마곡동 797'},
+    park:{lat:37.2532,lng:127.1047,addr:'경기도 용인시 기흥구 하갈동 (기흥호수공원)'},
+    mart:{lat:37.2803,lng:127.1135,addr:'경기도 용인시 기흥구 구갈동 이마트'},
+    road1:{lat:37.4834,lng:127.0335,addr:'서울특별시 서초구 양재동'},
+    road2:{lat:37.3947,lng:127.1112,addr:'경기도 성남시 분당구 판교동'},
+    road0:{lat:37.5440,lng:126.8960,addr:'서울특별시 영등포구 양평동'},
+  };
+  let plan;
+  if(d===0 || d===6){
+    plan = {8:'집',9:'집',10:'집',11:'mart',12:'집',13:'집',14:'park',15:'park',16:'park',17:'집',18:'집',19:'집',20:'집',21:'집',22:'집'};
+  }else if(d===5){
+    plan = {7:'숙소',8:'숙소',9:'회사',10:'회사',11:'회사',12:'lunch',13:'회사',14:'회사',15:'회사',16:'회사',17:'회사',18:'road0',19:'road1',20:'road2',21:'집',22:'집',23:'집'};
+  }else if(d===1){
+    plan = {6:'집',7:'road2',8:'road0',9:'회사',10:'회사',11:'회사',12:'lunch',13:'회사',14:'회사',15:'회사',16:'cafe',17:'회사',18:'회사',19:'숙소',20:'숙소',21:'숙소',22:'숙소'};
+  }else{
+    plan = {7:'숙소',8:'숙소',9:'회사',10:'회사',11:'회사',12:'lunch',13:'회사',14:'회사',15:'cafe',16:'회사',17:'회사',18:'회사',19:'cafe',20:'숙소',21:'숙소',22:'숙소',23:'숙소'};
+  }
+  const nowH = date===kstDate(new Date()) ? new Date(Date.now()+9*3600e3).getUTCHours() : 24;
+  const pts = [];
+  for(const [h,key] of Object.entries(plan)){
+    if(+h > nowH) break;
+    const pl = P[key], sp = spots[key], base = pl || sp, j = 0.00025;
+    pts.push({ id:`${date}-${h}`, ts:new Date(Date.parse(date+'T00:00:00+09:00')+h*3600e3).toISOString(), date, time:`${String(h).padStart(2,'0')}:00`,
+      lat: base.lat + (r()-.5)*j, lng: base.lng + (r()-.5)*j, accuracy: Math.round(5+r()*25), source:'shortcut',
+      place: pl ? pl.name : '', address: pl ? (pl.name==='집' ? '경기도 용인시 기흥구 구갈동' : '서울특별시 강서구 마곡동') : sp.addr, memo:'' });
+  }
+  return pts.concat(demoStore.extra[date] || []).sort((a,b)=>a.time<b.time?-1:1);
+}
+async function demoApi(action, p){
+  await new Promise(r=>setTimeout(r,180));
+  if(action==='day') return { ok:true, points: demoDay(p.date) };
+  if(action==='days'){ const o={}; for(let i=0;i<60;i++){ const ds=addDays(S.date,-i); const n=demoDay(ds).length; if(n) o[ds]=n; } return { ok:true, days:o }; }
+  if(action==='places') return { ok:true, places: S.places.length ? S.places : DEMO_PLACES };
+  if(action==='addPlace'){ const list=(S.places.length?S.places:[...DEMO_PLACES]).filter(x=>x.name!==p.name); list.push({ ...p, radius:150 }); return { ok:true, places:list }; }
+  if(action==='deletePlace') return { ok:true };
+  if(action==='log'){ const t=new Date(); const date=kstDate(t); const time=new Date(t.getTime()+9*3600e3).toISOString().slice(11,16);
+    (demoStore.extra[date] ||= []).push({ id:'x'+t.getTime(), ts:t.toISOString(), date, time, lat:+p.lat, lng:+p.lng, accuracy:p.accuracy, source:'app', place:'', address:'', memo:'' }); return { ok:true }; }
+  if(action==='deletePoint'){ for(const k in demoStore.extra) demoStore.extra[k]=demoStore.extra[k].filter(x=>x.id!==p.id); return { ok:true }; }
+  return { ok:true };
+}
+
+/* ═════════════ 지도 ═════════════ */
+const dark = matchMedia('(prefers-color-scheme: dark)');
+const map = L.map('map', { zoomControl:false, attributionControl:true, zoomSnap:.25 }).setView([37.45, 126.98], 10);
+let tiles;
+function setTiles(){
+  if(tiles) map.removeLayer(tiles);
+  tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark.matches?'dark_all':'rastertiles/voyager'}/{z}/{x}/{y}{r}.png`, {
+    subdomains:'abcd', maxZoom:20, attribution:'© OpenStreetMap © CARTO' }).addTo(map);
+}
+setTiles(); dark.addEventListener?.('change', setTiles);
+
+const layers = { glow:L.layerGroup().addTo(map), steps:L.layerGroup().addTo(map), stops:L.layerGroup().addTo(map), me:L.layerGroup().addTo(map) };
+
+function matchPlace(p){
+  let best=null, bd=Infinity;
+  for(const pl of S.places){ const d=hav(p,pl); if(d <= (pl.radius||150) && d < bd){ best=pl; bd=d; } }
+  return best;
+}
+
+/* 기록점 → 체류(stay) 묶음 */
+function buildStays(pts){
+  const stays=[];
+  for(const p of pts){
+    const pl = matchPlace(p), last = stays[stays.length-1];
+    const same = last && ((pl && last.place && pl.name===last.place.name) || (!pl && !last.place && hav(last.center,p) < 200));
+    if(same){
+      last.pts.push(p); last.end=p;
+      const n=last.pts.length; last.center={ lat:(last.center.lat*(n-1)+p.lat)/n, lng:(last.center.lng*(n-1)+p.lng)/n };
+    }else stays.push({ pts:[p], start:p, end:p, center:{lat:p.lat,lng:p.lng}, place:pl });
+  }
+  stays.forEach((s,i)=>{
+    s.idx=i; s.color=lerpColor(stays.length>1 ? i/(stays.length-1) : 0);
+    s.name = s.place ? s.place.name : (shortAddr(s.pts.find(x=>x.address)?.address) || `${s.center.lat.toFixed(4)}, ${s.center.lng.toFixed(4)}`);
+    s.emoji = s.place?.emoji || '';
+    s.ms = new Date(s.end.ts) - new Date(s.start.ts);
+  });
+  return stays;
+}
+function totalDistance(pts){
+  let d=0; for(let i=1;i<pts.length;i++){ const s=hav(pts[i-1],pts[i]); if(s>80) d+=s; } return d; // GPS 잔떨림(80m 미만) 제외
+}
+
+let stays=[];
+function drawDay(fit=true){
+  Object.values(layers).forEach(l=>l!==layers.me && l.clearLayers());
+  const pts=S.points; stays=buildStays(pts);
+  if(!pts.length) return;
+  const isToday = S.date===kstDate(new Date());
+
+  // 은은한 경로 글로우 (시간에 따라 그라데이션)
+  for(let i=1;i<pts.length;i++){
+    const c=lerpColor((i-.5)/(pts.length-1));
+    L.polyline([pts[i-1],pts[i]], { color:c, weight:10, opacity:.16, lineCap:'round', interactive:false }).addTo(layers.glow);
+  }
+  // 체류 지점 마커
+  stays.forEach((s,i)=>{
+    const last = i===stays.length-1;
+    const label = s.pts.length>1 ? `${s.start.time}–${s.end.time}` : s.start.time;
+    const html = `<div class="stop${last&&isToday?' now':''}" style="--c:${s.color}">
+      <div class="pin${s.emoji?' emoji':''}">${s.emoji || (i+1)}</div><div class="lbl">${esc(label)}</div></div>`;
+    L.marker(s.center, { icon:L.divIcon({ html, className:'', iconSize:[0,0] }), zIndexOffset: last?1000:i })
+      .on('click',()=>focusStay(i)).addTo(layers.stops);
+  });
+  drawSteps();
+  if(fit) fitDay();
+}
+
+/* 발자국(👣) — 현재 줌의 화면 픽셀 간격으로 좌/우 번갈아 배치 */
+const FOOT = (fill, flip) => `<svg width="12" height="20" viewBox="0 0 12 20" style="transform:scaleX(${flip?-1:1})">
+  <path fill="${fill}" d="M6.2 0.6c2.9 0 4.9 2.6 4.9 6 0 2.6-1 4.2-1.7 5.6-.5 1-.6 1.6-1.8 1.8-1.5.2-3.5.1-4.6-.5C1.8 12.8.9 10.4.9 7.4.9 3.6 3.2.6 6.2.6z"/>
+  <ellipse fill="${fill}" cx="5.6" cy="17" rx="3" ry="2.6"/></svg>`;
+function drawSteps(){
+  layers.steps.clearLayers();
+  const pts=S.points; if(pts.length<2) return;
+  const px = pts.map(p=>map.latLngToLayerPoint(p));
+  let total=0; for(let i=1;i<px.length;i++) total+=px[i].distanceTo(px[i-1]);
+  const gap = Math.max(20, total/450), off=4.5;
+  let step=0;
+  for(let i=1;i<px.length;i++){
+    const a=px[i-1], b=px[i], len=a.distanceTo(b);
+    if(len < 46) continue;                         // 같은 장소 체류 구간은 생략
+    const ux=(b.x-a.x)/len, uy=(b.y-a.y)/len, ang=Math.atan2(uy,ux)*180/Math.PI+90;
+    for(let t=22; t<len-22; t+=gap){
+      const side = step++%2 ? 1 : -1;
+      const x=a.x+ux*t - uy*off*side, y=a.y+uy*t + ux*off*side;
+      const c=lerpColor((i-1 + t/len)/(pts.length-1));
+      const ll=map.layerPointToLatLng([x,y]);
+      L.marker(ll,{ interactive:false, keyboard:false, icon:L.divIcon({ className:'step', iconSize:[12,20], iconAnchor:[6,10],
+        html:`<div style="transform:rotate(${ang}deg)">${FOOT(c, side>0)}</div>` }) }).addTo(layers.steps);
+    }
+  }
+}
+map.on('zoomend', drawSteps);
+
+function sheetPeek(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-peek'))||250; }
+function fitDay(){
+  if(!S.points.length) return;
+  const b=L.latLngBounds(S.points.map(p=>[p.lat,p.lng]));
+  const top=$('header').getBoundingClientRect().bottom+20;
+  map.fitBounds(b, { paddingTopLeft:[40,top], paddingBottomRight:[150, sheetPeek()+60], maxZoom:16, animate:true });
+}
+function focusStay(i){
+  const s=stays[i]; if(!s) return;
+  setSheet('peek');
+  map.flyTo(s.center, Math.max(map.getZoom(),16), { duration:.8 });
+  document.querySelectorAll('.tl-item').forEach(el=>el.style.background = +el.dataset.i===i ? 'var(--faint)' : '');
+}
+
+/* ═════════════ 시트(바텀시트) 렌더 ═════════════ */
+function renderStats(){
+  const pts=S.points;
+  $('#sDist').innerHTML = `${(totalDistance(pts)/1000).toFixed(1)}<small>km</small>`;
+  $('#sCount').innerHTML = `${pts.length}<small>회</small>`;
+  $('#sPlaces').innerHTML = `${new Set(stays.map(s=>s.name)).size}<small>곳</small>`;
+  const hrs=new Set(pts.map(p=>+p.time.slice(0,2)));
+  $('#hours').innerHTML = Array.from({length:24},(_,h)=>`<i class="${hrs.has(h)?'on':''}" style="--c:${lerpColor(h/23)}" title="${h}시"></i>`).join('');
+  setPeek();
+}
+function renderList(){
+  const el=$('#list');
+  if(!S.points.length){
+    el.innerHTML = `<div class="empty"><div class="big">👣</div>${S.date===kstDate(new Date())?'아직 오늘의 기록이 없어요.<br>단축어 자동화가 매시 정각에 기록하거나<br><b>＋</b> 버튼으로 지금 기록할 수 있어요.':'이 날은 기록이 없어요.'}</div>`;
+    return;
+  }
+  if(S.tab==='timeline'){
+    let h='<div class="tl">';
+    stays.forEach((s,i)=>{
+      if(i>0){ const d=hav(stays[i-1].end, s.start);
+        h+=`<div class="move"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>이동 · ${d>=1000?(d/1000).toFixed(1)+'km':Math.round(d)+'m'}</div>`; }
+      const when = s.pts.length>1 ? `${s.start.time} – ${s.end.time}` : s.start.time;
+      const sub = s.place ? shortAddr(s.pts.find(x=>x.address)?.address)||'' : '';
+      h+=`<button class="tl-item" data-i="${i}" style="--c:${s.color}">
+        <div class="dot${s.emoji?' emoji':''}">${s.emoji||i+1}</div>
+        <div class="tl-body"><b>${esc(s.name)}</b><span>${when}${sub?' · '+esc(sub):''}</span></div>
+        ${s.ms>0?`<div class="dur">${fmtDur(s.ms)}</div>`:''}</button>`;
+    });
+    el.innerHTML = h+'</div>';
+    el.querySelectorAll('.tl-item').forEach(b=>b.onclick=()=>focusStay(+b.dataset.i));
+  }else{
+    el.innerHTML = S.points.slice().reverse().map(p=>{
+      const pl=matchPlace(p);
+      return `<div class="rec"><div class="t">${p.time}</div><div class="a">
+        <div>${pl?pl.emoji+' '+esc(pl.name)+' · ':''}${esc(shortAddr(p.address)||`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`)}</div>
+        <small>${p.source==='app'?'앱':'자동'}${p.accuracy?` · 오차 ±${p.accuracy}m`:''}${p.battery!=null&&p.battery!==''?` · 🔋${p.battery}%`:''}</small></div>
+        <button data-id="${esc(p.id)}" aria-label="삭제">✕</button></div>`;
+    }).join('');
+    el.querySelectorAll('.rec button').forEach(b=>b.onclick=async()=>{
+      if(!confirm('이 기록을 삭제할까요? (구글 시트에서도 삭제됩니다)')) return;
+      try{ await api('deletePoint',{ id:b.dataset.id }, true); toast('삭제했어요'); loadDay(false); }catch(e){ toast('삭제 실패: '+e.message); }
+    });
+  }
+}
+
+/* ═════════════ 날짜 스트립 ═════════════ */
+function renderStrip(){
+  const today=kstDate(new Date()); let start=addDays(today,-44);
+  if(S.date<start) start=addDays(S.date,-3);
+  const html=[];
+  for(let d=start; d<=addDays(today,2); d=addDays(d,1)){
+    const w=dow(d);
+    html.push(`<button class="chip${d===S.date?' on':''}${w===0?' sun':w===6?' sat':''}${d>today?' future':''}" data-d="${d}">
+      <span>${d===today?'오늘':DOW[w]}</span><b>${+d.slice(8)}</b>${S.days[d]?'<u></u>':''}</button>`);
+  }
+  const strip=$('#strip'); strip.innerHTML=html.join('');
+  strip.querySelectorAll('.chip').forEach(c=>c.onclick=()=>selectDate(c.dataset.d));
+  strip.querySelector('.chip.on')?.scrollIntoView({ inline:'center', block:'nearest', behavior:'instant' });
+}
+function renderTitle(){
+  const today=kstDate(new Date()), [y,m,d]=S.date.split('-').map(Number);
+  const rel = S.date===today ? '오늘' : S.date===addDays(today,-1) ? '어제' : '';
+  $('#title').textContent = `${m}월 ${d}일 ${DOW[dow(S.date)]}요일${rel?' · '+rel:''}`;
+  $('#statusTxt').textContent = demo() ? '데모 모드 · 설정에서 시트 연결' : `구글 시트 연결됨${y!==new Date().getFullYear()?' · '+y+'년':''}`;
+  $('#statusDot').className = demo() ? 'demo' : '';
+  $('#dateInput').value=S.date; $('#dateInput').max=today;
+}
+function selectDate(d){ if(d===S.date) return; S.date=d; renderStrip(); loadDay(); }
+
+/* ═════════════ 데이터 로드 ═════════════ */
+const dayCache = new Map();
+async function loadDay(fit=true){
+  renderTitle();
+  const key=S.date;
+  if(dayCache.has(key)){ S.points=dayCache.get(key); drawDay(fit); renderStats(); renderList(); }
+  try{
+    const j=await api('day',{ date:key });
+    if(key!==S.date) return;
+    S.points=j.points.map(p=>({ ...p, lat:+p.lat, lng:+p.lng })); dayCache.set(key,S.points);
+    if(S.points.length) S.days[key]=S.points.length; else delete S.days[key];
+    drawDay(fit); renderStats(); renderList();
+  }catch(e){ if(!dayCache.has(key)){ S.points=[]; drawDay(); renderStats(); renderList(); } toast('불러오기 실패: '+e.message); }
+}
+async function loadMeta(){
+  try{ const [p,d]=await Promise.all([api('places'), api('days')]);
+    S.places=p.places; S.days=d.days; LS.set('places',S.places); LS.set('days',S.days);
+  }catch(e){ toast('연결 오류: '+e.message); }
+  renderStrip(); renderPlaces();
+}
+
+/* ═════════════ 위치 기록 ═════════════ */
+function getPos(){
+  return new Promise((ok,no)=>navigator.geolocation ? navigator.geolocation.getCurrentPosition(ok,no,{ enableHighAccuracy:true, timeout:15000, maximumAge:0 }) : no(new Error('위치 서비스를 지원하지 않아요')));
+}
+let meMarker;
+function showMe(pos){
+  const ll=[pos.coords.latitude,pos.coords.longitude];
+  layers.me.clearLayers();
+  meMarker=L.marker(ll,{ icon:L.divIcon({ className:'', html:'<div class="me"></div>', iconSize:[0,0] }), interactive:false }).addTo(layers.me);
+  return ll;
+}
+$('#recordBtn').onclick=async()=>{
+  const b=$('#recordBtn'); if(b.classList.contains('busy')) return;
+  b.classList.add('busy');
+  try{
+    const pos=await getPos(); showMe(pos);
+    const item={ lat:pos.coords.latitude, lng:pos.coords.longitude, accuracy:Math.round(pos.coords.accuracy), altitude:pos.coords.altitude, source:'app', timestamp:new Date().toISOString() };
+    try{ await api('log', item, true); toast('📍 지금 위치를 기록했어요'); }
+    catch(e){ const q=LS.get('queue',[]); q.push(item); LS.set('queue',q); toast('오프라인 — 연결되면 자동 전송할게요'); }
+    navigator.vibrate?.(12);
+    dayCache.delete(kstDate(new Date()));
+    if(S.date!==kstDate(new Date())) { S.date=kstDate(new Date()); renderStrip(); }
+    await loadDay();
+  }catch(e){ toast(e.code===1 ? '위치 권한을 허용해 주세요' : '위치 확인 실패: '+e.message); }
+  finally{ b.classList.remove('busy'); }
+};
+$('#locateBtn').onclick=async()=>{
+  try{ const ll=showMe(await getPos()); map.flyTo(ll,16,{ duration:.8 }); }
+  catch(e){ toast(e.code===1 ? '위치 권한을 허용해 주세요' : '위치 확인 실패'); }
+};
+
+/* ═════════════ 헤더 동작 ═════════════ */
+$('#todayBtn').onclick=()=>{ S.date===kstDate(new Date()) ? fitDay() : selectDate(kstDate(new Date())); };
+$('#dateBtn').onclick=()=>{ const i=$('#dateInput'); try{ i.showPicker(); }catch{ i.focus(); i.click(); } };
+$('#dateInput').onchange=e=>{ if(e.target.value) selectDate(e.target.value); };
+
+/* ═════════════ 바텀시트 드래그 ═════════════ */
+const sheet=$('#sheet');
+function setPeek(){ const h=$('#grab').offsetHeight + 14; document.documentElement.style.setProperty('--sheet-peek', h+'px'); }
+let sheetState='peek';
+function setSheet(st){ sheetState=st; sheet.style.transform = st==='full' ? 'translateY(0)' : ''; }
+(()=>{
+  let y0=null, base=0, moved=0, t0=0;
+  const down=e=>{ y0=e.clientY; t0=Date.now(); moved=0; base = sheetState==='full' ? 0 : sheet.offsetHeight - sheetPeek(); sheet.classList.add('dragging'); $('#grab').setPointerCapture(e.pointerId); };
+  const move=e=>{ if(y0==null) return; moved=e.clientY-y0; const y=Math.min(sheet.offsetHeight-sheetPeek()+40, Math.max(0, base+moved)); sheet.style.transform=`translateY(${y}px)`; };
+  const up=()=>{ if(y0==null) return; sheet.classList.remove('dragging'); const v=moved/(Date.now()-t0);
+    if(Math.abs(moved)<6) setSheet(sheetState==='full'?'peek':'full');
+    else setSheet(moved<0 || v<-.5 ? (v>.5?'peek':'full') : 'peek');
+    y0=null; };
+  const g=$('#grab'); g.addEventListener('pointerdown',down); g.addEventListener('pointermove',move); g.addEventListener('pointerup',up); g.addEventListener('pointercancel',up);
+})();
+$('#seg').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.tab=b.dataset.tab;
+  $('#seg').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderList(); };
+
+/* ═════════════ 설정 & 장소 ═════════════ */
+const dlg=$('#settings');
+$('#settingsBtn').onclick=()=>{ $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; renderPlaces(); dlg.showModal(); };
+dlg.addEventListener('click',e=>{ if(e.target===dlg || e.target.closest('[data-close]')) dlg.close(); });
+$('#testBtn').onclick=async()=>{
+  const url=$('#cfgUrl').value.trim(), token=$('#cfgToken').value.trim();
+  if(!url) return toast('URL 을 입력하세요');
+  try{ const r=await fetch(`${url}?action=ping&token=${encodeURIComponent(token)}`); const j=await r.json();
+    toast(j.ok?'✅ 연결 성공':'❌ '+(j.error==='unauthorized'?'토큰이 일치하지 않아요':j.error)); }
+  catch(e){ toast('❌ 연결 실패 — URL/배포 권한을 확인하세요'); }
+};
+$('#saveBtn').onclick=()=>{
+  S.cfg={ url:$('#cfgUrl').value.trim(), token:$('#cfgToken').value.trim() }; LS.set('cfg',S.cfg);
+  if(demo()) S.places=[]; dayCache.clear(); dlg.close(); toast('저장했어요');
+  boot();
+};
+$('#emojis').innerHTML=EMOJIS.map(e=>`<button data-e="${e}" class="${e===S.emoji?'on':''}">${e}</button>`).join('');
+$('#emojis').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.emoji=b.dataset.e;
+  $('#emojis').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); };
+function renderPlaces(){
+  const el=$('#placeList');
+  el.innerHTML = S.places.length ? S.places.map(p=>`<div class="place"><span class="e">${p.emoji||'📍'}</span>
+    <div class="n">${esc(p.name)}<small>${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)} · 반경 ${p.radius||150}m</small></div>
+    <button data-n="${esc(p.name)}">삭제</button></div>`).join('') : '<div class="place"><div class="n"><small>등록된 장소가 없어요</small></div></div>';
+  el.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+    try{ await api('deletePlace',{ name:b.dataset.n },true); S.places=S.places.filter(p=>p.name!==b.dataset.n); LS.set('places',S.places); renderPlaces(); drawDay(false); renderStats(); renderList(); }
+    catch(e){ toast('삭제 실패: '+e.message); }
+  });
+}
+async function addPlace(lat,lng,name=$('#plName').value.trim(),emoji=S.emoji){
+  if(!name) return toast('장소 이름을 입력하세요');
+  try{ const j=await api('addPlace',{ name, emoji, lat, lng, radius:150 },true); S.places=j.places; LS.set('places',S.places);
+    $('#plName').value=''; renderPlaces(); drawDay(false); renderStats(); renderList(); toast(`${emoji} ${name} 등록 완료`); }
+  catch(e){ toast('등록 실패: '+e.message); }
+}
+$('#addHereBtn').onclick=async()=>{ try{ const p=await getPos(); addPlace(p.coords.latitude,p.coords.longitude); }catch{ toast('위치 확인 실패'); } };
+$('#addCenterBtn').onclick=()=>{ const c=map.getCenter(); addPlace(c.lat,c.lng); };
+
+// 지도 길게 누르기 → 장소 등록
+(()=>{
+  let timer, start;
+  const el=map.getContainer();
+  const cancel=()=>clearTimeout(timer);
+  el.addEventListener('touchstart',e=>{ if(e.touches.length!==1) return cancel(); const t=e.touches[0]; start=[t.clientX,t.clientY];
+    timer=setTimeout(()=>{ navigator.vibrate?.(20); const ll=map.containerPointToLatLng(L.point(start[0],start[1]));
+      const name=prompt('이 위치를 어떤 장소로 등록할까요? (예: 집, 회사)'); if(name) addPlace(ll.lat,ll.lng,name.trim(),'📍'); },650); },{ passive:true });
+  el.addEventListener('touchmove',e=>{ const t=e.touches[0]; if(Math.hypot(t.clientX-start[0],t.clientY-start[1])>10) cancel(); },{ passive:true });
+  el.addEventListener('touchend',cancel); el.addEventListener('touchcancel',cancel);
+  map.on('contextmenu',e=>{ const name=prompt('이 위치를 어떤 장소로 등록할까요?'); if(name) addPlace(e.latlng.lat,e.latlng.lng,name.trim(),'📍'); });
+})();
+
+/* ═════════════ 시작 ═════════════ */
+async function boot(){
+  if(demo() && !S.places.length) S.places=DEMO_PLACES.slice();
+  // URL 파라미터로 날짜 지정 가능 (?date=2026-11-12) — 위젯에서 열 때 사용
+  const qd=new URLSearchParams(location.search).get('date'); if(qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) S.date=qd;
+  renderTitle(); renderStrip(); setPeek();
+  await Promise.all([loadMeta(), loadDay()]);
+  flushQueue();
+}
+addEventListener('resize',setPeek);
+addEventListener('online',flushQueue);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ dayCache.delete(kstDate(new Date())); if(S.date===kstDate(new Date())) loadDay(false); } });
+boot();
+if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
