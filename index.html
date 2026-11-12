@@ -44,6 +44,9 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .leaflet-container{font:inherit}
 .leaflet-control-attribution{font-size:9px;background:transparent!important;opacity:.55;margin-bottom:calc(var(--sheet-peek,250px) + var(--safe-b) + 4px)!important}
 .leaflet-control-zoom{display:none}
+body.kakao #map{bottom:calc(var(--sheet-peek,250px) + var(--safe-b) - 2px)} /* 카카오 로고가 가려지지 않도록 지도는 시트 위까지 */
+.ov{position:relative;width:0;height:0}
+.step{position:absolute;left:-6px;top:-10px;width:12px;height:20px;pointer-events:none}
 
 .glass{background:var(--glass);border:1px solid var(--glass-line);box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.35);
   -webkit-backdrop-filter:blur(28px) saturate(190%);backdrop-filter:blur(28px) saturate(190%)}
@@ -128,7 +131,6 @@ header{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index
 .empty .big{font-size:42px;margin-bottom:6px}
 
 /* ── Map markers ── */
-.step{pointer-events:none}
 .step svg{display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
 .stop{position:relative}
 .stop .pin{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:13px;display:grid;place-items:center;
@@ -229,6 +231,10 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
     <div class="group">
       <label class="field"><span>웹 앱 URL</span><input id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
       <label class="field"><span>토큰 (Code.gs 의 CONFIG.TOKEN)</span><input id="cfgToken" type="password" placeholder="비밀 토큰" autocomplete="off"></label>
+    </div>
+    <div class="gt">배경 지도</div>
+    <div class="group">
+      <label class="field"><span>카카오맵 JavaScript 키 (비우면 기본 지도)</span><input id="cfgKakao" placeholder="Kakao Developers → 앱 키 → JavaScript 키" autocomplete="off"></label>
     </div>
     <div class="row"><button class="btn" id="testBtn">연결 테스트</button><button class="btn pri" id="saveBtn">저장</button></div>
     <p class="note">URL 을 비워두면 <b>데모 모드</b>로 예시 데이터가 표시됩니다.</p>
@@ -373,18 +379,76 @@ async function demoApi(action, p){
   return { ok:true };
 }
 
-/* ═════════════ 지도 ═════════════ */
+/* ═════════════ 지도 어댑터 — 카카오맵(JavaScript 키가 있을 때) / Leaflet(없을 때) ═════════════ */
 const dark = matchMedia('(prefers-color-scheme: dark)');
-const map = L.map('map', { zoomControl:false, attributionControl:true, zoomSnap:.25 }).setView([37.45, 126.98], 10);
-let tiles;
-function setTiles(){
-  if(tiles) map.removeLayer(tiles);
-  tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark.matches?'dark_all':'rastertiles/voyager'}/{z}/{x}/{y}{r}.png`, {
-    subdomains:'abcd', maxZoom:20, attribution:'© OpenStreetMap © CARTO' }).addTo(map);
+let M = null;
+function loadScript(src){
+  return new Promise((ok,no)=>{ const el=document.createElement('script'); el.src=src; el.onload=ok; el.onerror=()=>no(new Error('script')); document.head.appendChild(el); });
 }
-setTiles(); dark.addEventListener?.('change', setTiles);
+async function initMap(){
+  const key=(S.cfg.kakaoKey||'').trim();
+  if(key){
+    try{
+      await loadScript(`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false`);
+      await Promise.race([ new Promise(r=>kakao.maps.load(r)), new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),10000)) ]);
+      document.body.classList.add('kakao');
+      M=kakaoAdapter(); return;
+    }catch(e){ toast('카카오맵을 불러오지 못했어요. 키와 도메인 등록을 확인하세요'); }
+  }
+  M=leafletAdapter();
+}
 
-const layers = { glow:L.layerGroup().addTo(map), steps:L.layerGroup().addTo(map), stops:L.layerGroup().addTo(map), me:L.layerGroup().addTo(map) };
+function kakaoAdapter(){
+  const K=kakao.maps, el=$('#map');
+  const map=new K.Map(el,{ center:new K.LatLng(37.45,126.98), level:9 });
+  const LL=p=>new K.LatLng(p.lat,p.lng), groups={};
+  const add=(g,o)=>(groups[g] ||= []).push(o);
+  return {
+    kind:'kakao', el,
+    clear(g){ (groups[g]||[]).forEach(o=>o.setMap(null)); groups[g]=[]; },
+    line(g,a,b,color,weight,opacity){ add(g,new K.Polyline({ map, path:[LL(a),LL(b)], strokeWeight:weight, strokeColor:color, strokeOpacity:opacity, strokeStyle:'solid' })); },
+    html(g,p,html,{ z=0, onClick }={}){
+      const node=document.createElement('div'); node.className='ov'; node.innerHTML=html;
+      if(onClick) node.addEventListener('click',e=>{ e.stopPropagation(); onClick(); });
+      add(g,new K.CustomOverlay({ map, position:LL(p), content:node, xAnchor:0, yAnchor:0, zIndex:z, clickable:!!onClick }));
+    },
+    toPx(p){ const pt=map.getProjection().containerPointFromCoords(LL(p)); return { x:pt.x, y:pt.y }; },
+    fromPx(x,y){ const c=map.getProjection().coordsFromContainerPoint(new K.Point(x,y)); return { lat:c.getLat(), lng:c.getLng() }; },
+    fit(pts,pad){ const b=new K.LatLngBounds(); pts.forEach(p=>b.extend(LL(p))); map.setBounds(b,pad.top,pad.right,pad.bottom,pad.left); if(map.getLevel()<3) map.setLevel(3); },
+    fly(p){ if(map.getLevel()>3) map.setLevel(3); map.panTo(LL(p)); },
+    center(){ const c=map.getCenter(); return { lat:c.getLat(), lng:c.getLng() }; },
+    onZoom(fn){ K.event.addListener(map,'zoom_changed',()=>requestAnimationFrame(fn)); },
+    onContext(fn){ K.event.addListener(map,'rightclick',e=>fn({ lat:e.latLng.getLat(), lng:e.latLng.getLng() })); },
+    relayout(){ map.relayout(); },
+  };
+}
+
+function leafletAdapter(){
+  const map=L.map('map',{ zoomControl:false, zoomSnap:.25 }).setView([37.45,126.98],10);
+  let tiles;
+  const setTiles=()=>{ if(tiles) map.removeLayer(tiles);
+    tiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark.matches?'dark_all':'rastertiles/voyager'}/{z}/{x}/{y}{r}.png`,
+      { subdomains:'abcd', maxZoom:20, attribution:'© OpenStreetMap © CARTO' }).addTo(map); };
+  setTiles(); dark.addEventListener?.('change',setTiles);
+  const groups={}, grp=g=>groups[g] ||= L.layerGroup().addTo(map);
+  return {
+    kind:'leaflet', el:map.getContainer(),
+    clear(g){ grp(g).clearLayers(); },
+    line(g,a,b,color,weight,opacity){ L.polyline([a,b],{ color, weight, opacity, lineCap:'round', interactive:false }).addTo(grp(g)); },
+    html(g,p,html,{ z=0, onClick }={}){
+      const m=L.marker(p,{ icon:L.divIcon({ html:`<div class="ov">${html}</div>`, className:'', iconSize:[0,0] }), zIndexOffset:z, interactive:!!onClick, keyboard:false });
+      if(onClick) m.on('click',onClick); m.addTo(grp(g));
+    },
+    toPx(p){ return map.latLngToContainerPoint(p); },
+    fromPx(x,y){ return map.containerPointToLatLng([x,y]); },
+    fit(pts,pad){ map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])),{ paddingTopLeft:[pad.left,pad.top], paddingBottomRight:[pad.right,pad.bottom], maxZoom:16 }); },
+    fly(p){ map.flyTo(p, Math.max(map.getZoom(),16), { duration:.8 }); },
+    center(){ return map.getCenter(); },
+    onZoom(fn){ map.on('zoomend',fn); },
+    onContext(fn){ map.on('contextmenu',e=>fn(e.latlng)); },
+    relayout(){ map.invalidateSize(); },
+  };
+}
 
 function matchPlace(p){
   let best=null, bd=Infinity;
@@ -417,7 +481,8 @@ function totalDistance(pts){
 
 let stays=[];
 function drawDay(fit=true){
-  Object.values(layers).forEach(l=>l!==layers.me && l.clearLayers());
+  if(!M) return;
+  ['glow','steps','stops'].forEach(g=>M.clear(g));
   const pts=S.points; stays=buildStays(pts);
   if(!pts.length) return;
   const isToday = S.date===kstDate(new Date());
@@ -425,7 +490,7 @@ function drawDay(fit=true){
   // 은은한 경로 글로우 (시간에 따라 그라데이션)
   for(let i=1;i<pts.length;i++){
     const c=lerpColor((i-.5)/(pts.length-1));
-    L.polyline([pts[i-1],pts[i]], { color:c, weight:10, opacity:.16, lineCap:'round', interactive:false }).addTo(layers.glow);
+    M.line('glow', pts[i-1], pts[i], c, 10, M.kind==='kakao' ? .3 : .16);
   }
   // 체류 지점 마커
   stays.forEach((s,i)=>{
@@ -433,8 +498,7 @@ function drawDay(fit=true){
     const label = s.pts.length>1 ? `${s.start.time}–${s.end.time}` : s.start.time;
     const html = `<div class="stop${last&&isToday?' now':''}" style="--c:${s.color}">
       <div class="pin${s.emoji?' emoji':''}">${s.emoji || (i+1)}</div><div class="lbl">${esc(label)}</div></div>`;
-    L.marker(s.center, { icon:L.divIcon({ html, className:'', iconSize:[0,0] }), zIndexOffset: last?1000:i })
-      .on('click',()=>focusStay(i)).addTo(layers.stops);
+    M.html('stops', s.center, html, { z: last ? 1000 : 10+i, onClick:()=>focusStay(i) });
   });
   drawSteps();
   if(fit) fitDay();
@@ -445,39 +509,37 @@ const FOOT = (fill, flip) => `<svg width="12" height="20" viewBox="0 0 12 20" st
   <path fill="${fill}" d="M6.2 0.6c2.9 0 4.9 2.6 4.9 6 0 2.6-1 4.2-1.7 5.6-.5 1-.6 1.6-1.8 1.8-1.5.2-3.5.1-4.6-.5C1.8 12.8.9 10.4.9 7.4.9 3.6 3.2.6 6.2.6z"/>
   <ellipse fill="${fill}" cx="5.6" cy="17" rx="3" ry="2.6"/></svg>`;
 function drawSteps(){
-  layers.steps.clearLayers();
+  if(!M) return;
+  M.clear('steps');
   const pts=S.points; if(pts.length<2) return;
-  const px = pts.map(p=>map.latLngToLayerPoint(p));
-  let total=0; for(let i=1;i<px.length;i++) total+=px[i].distanceTo(px[i-1]);
+  const px = pts.map(p=>M.toPx(p)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  let total=0; for(let i=1;i<px.length;i++) total+=dist(px[i],px[i-1]);
   const gap = Math.max(20, total/450), off=4.5;
   let step=0;
   for(let i=1;i<px.length;i++){
-    const a=px[i-1], b=px[i], len=a.distanceTo(b);
+    const a=px[i-1], b=px[i], len=dist(a,b);
     if(len < 46) continue;                         // 같은 장소 체류 구간은 생략
     const ux=(b.x-a.x)/len, uy=(b.y-a.y)/len, ang=Math.atan2(uy,ux)*180/Math.PI+90;
     for(let t=22; t<len-22; t+=gap){
       const side = step++%2 ? 1 : -1;
       const x=a.x+ux*t - uy*off*side, y=a.y+uy*t + ux*off*side;
       const c=lerpColor((i-1 + t/len)/(pts.length-1));
-      const ll=map.layerPointToLatLng([x,y]);
-      L.marker(ll,{ interactive:false, keyboard:false, icon:L.divIcon({ className:'step', iconSize:[12,20], iconAnchor:[6,10],
-        html:`<div style="transform:rotate(${ang}deg)">${FOOT(c, side>0)}</div>` }) }).addTo(layers.steps);
+      M.html('steps', M.fromPx(x,y), `<div class="step" style="transform:rotate(${ang}deg)">${FOOT(c, side>0)}</div>`, { z:1 });
     }
   }
 }
-map.on('zoomend', drawSteps);
 
 function sheetPeek(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-peek'))||250; }
 function fitDay(){
   if(!S.points.length) return;
-  const b=L.latLngBounds(S.points.map(p=>[p.lat,p.lng]));
-  const top=$('header').getBoundingClientRect().bottom+20;
-  map.fitBounds(b, { paddingTopLeft:[40,top], paddingBottomRight:[150, sheetPeek()+60], maxZoom:16, animate:true });
+  if(!M) return;
+  const top=$('header').getBoundingClientRect().bottom+20, k=M.kind==='kakao';
+  M.fit(S.points, { top, left:40, right:150, bottom: k ? 60 : sheetPeek()+60 });
 }
 function focusStay(i){
   const s=stays[i]; if(!s) return;
   setSheet('peek');
-  map.flyTo(s.center, Math.max(map.getZoom(),16), { duration:.8 });
+  M?.fly(s.center);
   document.querySelectorAll('.tl-item').forEach(el=>el.style.background = +el.dataset.i===i ? 'var(--faint)' : '');
 }
 
@@ -575,11 +637,9 @@ async function loadMeta(){
 function getPos(){
   return new Promise((ok,no)=>navigator.geolocation ? navigator.geolocation.getCurrentPosition(ok,no,{ enableHighAccuracy:true, timeout:15000, maximumAge:0 }) : no(new Error('위치 서비스를 지원하지 않아요')));
 }
-let meMarker;
 function showMe(pos){
-  const ll=[pos.coords.latitude,pos.coords.longitude];
-  layers.me.clearLayers();
-  meMarker=L.marker(ll,{ icon:L.divIcon({ className:'', html:'<div class="me"></div>', iconSize:[0,0] }), interactive:false }).addTo(layers.me);
+  const ll={ lat:pos.coords.latitude, lng:pos.coords.longitude };
+  if(M){ M.clear('me'); M.html('me', ll, '<div class="me"></div>', { z:2000 }); }
   return ll;
 }
 $('#recordBtn').onclick=async()=>{
@@ -598,7 +658,7 @@ $('#recordBtn').onclick=async()=>{
   finally{ b.classList.remove('busy'); }
 };
 $('#locateBtn').onclick=async()=>{
-  try{ const ll=showMe(await getPos()); map.flyTo(ll,16,{ duration:.8 }); }
+  try{ const ll=showMe(await getPos()); M?.fly(ll); }
   catch(e){ toast(e.code===1 ? '위치 권한을 허용해 주세요' : '위치 확인 실패'); }
 };
 
@@ -609,7 +669,7 @@ $('#dateInput').onchange=e=>{ if(e.target.value) selectDate(e.target.value); };
 
 /* ═════════════ 바텀시트 드래그 ═════════════ */
 const sheet=$('#sheet');
-function setPeek(){ const h=$('#grab').offsetHeight + 14; document.documentElement.style.setProperty('--sheet-peek', h+'px'); }
+function setPeek(){ const h=$('#grab').offsetHeight + 14; document.documentElement.style.setProperty('--sheet-peek', h+'px'); M?.relayout(); }
 let sheetState='peek';
 function setSheet(st){ sheetState=st; sheet.style.transform = st==='full' ? 'translateY(0)' : ''; }
 (()=>{
@@ -627,7 +687,7 @@ $('#seg').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.tab=
 
 /* ═════════════ 설정 & 장소 ═════════════ */
 const dlg=$('#settings');
-$('#settingsBtn').onclick=()=>{ $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; renderPlaces(); dlg.showModal(); };
+$('#settingsBtn').onclick=()=>{ $('#cfgUrl').value=S.cfg.url; $('#cfgToken').value=S.cfg.token; $('#cfgKakao').value=S.cfg.kakaoKey||''; renderPlaces(); dlg.showModal(); };
 dlg.addEventListener('click',e=>{ if(e.target===dlg || e.target.closest('[data-close]')) dlg.close(); });
 $('#testBtn').onclick=async()=>{
   const url=$('#cfgUrl').value.trim(), token=$('#cfgToken').value.trim();
@@ -637,7 +697,9 @@ $('#testBtn').onclick=async()=>{
   catch(e){ toast('❌ 연결 실패 — URL/배포 권한을 확인하세요'); }
 };
 $('#saveBtn').onclick=()=>{
-  S.cfg={ url:$('#cfgUrl').value.trim(), token:$('#cfgToken').value.trim() }; LS.set('cfg',S.cfg);
+  const prevKey=S.cfg.kakaoKey||'';
+  S.cfg={ url:$('#cfgUrl').value.trim(), token:$('#cfgToken').value.trim(), kakaoKey:$('#cfgKakao').value.trim() }; LS.set('cfg',S.cfg);
+  if(S.cfg.kakaoKey!==prevKey){ location.reload(); return; }  // 지도 엔진이 바뀌면 새로 고침
   if(demo()) S.places=[]; dayCache.clear(); dlg.close(); toast('저장했어요');
   boot();
 };
@@ -661,20 +723,20 @@ async function addPlace(lat,lng,name=$('#plName').value.trim(),emoji=S.emoji){
   catch(e){ toast('등록 실패: '+e.message); }
 }
 $('#addHereBtn').onclick=async()=>{ try{ const p=await getPos(); addPlace(p.coords.latitude,p.coords.longitude); }catch{ toast('위치 확인 실패'); } };
-$('#addCenterBtn').onclick=()=>{ const c=map.getCenter(); addPlace(c.lat,c.lng); };
+$('#addCenterBtn').onclick=()=>{ if(!M) return; const c=M.center(); addPlace(c.lat,c.lng); };
 
-// 지도 길게 누르기 → 장소 등록
-(()=>{
-  let timer, start;
-  const el=map.getContainer();
-  const cancel=()=>clearTimeout(timer);
+// 지도 길게 누르기 → 장소 등록 (지도 생성 후 호출)
+function setupMapGestures(){
+  let timer, start=[0,0];
+  const el=M.el, cancel=()=>clearTimeout(timer);
+  const ask=ll=>{ const name=prompt('이 위치를 어떤 장소로 등록할까요? (예: 집, 회사)'); if(name) addPlace(ll.lat,ll.lng,name.trim(),'📍'); };
   el.addEventListener('touchstart',e=>{ if(e.touches.length!==1) return cancel(); const t=e.touches[0]; start=[t.clientX,t.clientY];
-    timer=setTimeout(()=>{ navigator.vibrate?.(20); const ll=map.containerPointToLatLng(L.point(start[0],start[1]));
-      const name=prompt('이 위치를 어떤 장소로 등록할까요? (예: 집, 회사)'); if(name) addPlace(ll.lat,ll.lng,name.trim(),'📍'); },650); },{ passive:true });
-  el.addEventListener('touchmove',e=>{ const t=e.touches[0]; if(Math.hypot(t.clientX-start[0],t.clientY-start[1])>10) cancel(); },{ passive:true });
-  el.addEventListener('touchend',cancel); el.addEventListener('touchcancel',cancel);
-  map.on('contextmenu',e=>{ const name=prompt('이 위치를 어떤 장소로 등록할까요?'); if(name) addPlace(e.latlng.lat,e.latlng.lng,name.trim(),'📍'); });
-})();
+    timer=setTimeout(()=>{ navigator.vibrate?.(20); const r=el.getBoundingClientRect(); ask(M.fromPx(start[0]-r.left,start[1]-r.top)); },650); },{ passive:true, capture:true });
+  el.addEventListener('touchmove',e=>{ const t=e.touches[0]; if(Math.hypot(t.clientX-start[0],t.clientY-start[1])>10) cancel(); },{ passive:true, capture:true });
+  el.addEventListener('touchend',cancel,true); el.addEventListener('touchcancel',cancel,true);
+  M.onContext(ask);
+  M.onZoom(drawSteps);
+}
 
 /* ═════════════ 시작 ═════════════ */
 async function boot(){
@@ -682,6 +744,7 @@ async function boot(){
   // URL 파라미터로 날짜 지정 가능 (?date=2026-11-12) — 위젯에서 열 때 사용
   const qd=new URLSearchParams(location.search).get('date'); if(qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) S.date=qd;
   renderTitle(); renderStrip(); setPeek();
+  if(!M){ await initMap(); setupMapGestures(); }
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
