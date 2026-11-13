@@ -689,14 +689,27 @@ function lookupStations(pts){
     },{ location:new kakao.maps.LatLng(lat,lng), radius:500, sort:kakao.maps.services.SortBy.DISTANCE });
   }))).then(()=>{ swPending=false; LS.set('sw8',SW8); modeMemo=null; if(S.points===pts){ drawDay(false); renderList(); } });
 }
+/* 기차 구간 보강: 역(🚉)에서 출발하거나 역에 도착하는 고속(시속 60km+) 연속 구간, 또는 시속 110km+·20km 이상 구간
+   — 30분 간격 기록이라 도착역 기록이 아직 없거나(이동 중) 역을 지나쳐 바로 목적지에 찍혀도 기차로 표시 */
+const RAIL_KMH = 60;
+function railSegs(pts){
+  const pl = pts.map(matchPlace), n = pts.length, out = new Set(), fast = i => segKmh(pts[i-1],pts[i]) >= RAIL_KMH;
+  for(let j=0;j<n;j++){
+    if(!isStation(pl[j])) continue;
+    for(let k=j+1; k<n && fast(k); k++){ out.add(k); if(pl[k]) break; }      // 역 → 이후
+    for(let k=j; k>0 && fast(k); k--){ out.add(k); if(pl[k-1]) break; }       // 이전 → 역
+  }
+  for(let i=1;i<n;i++) if(segKmh(pts[i-1],pts[i]) >= 110 && hav(pts[i-1],pts[i]) >= 20000) out.add(i);
+  return out;
+}
 /* 구간별 이동 수단: 'plane' | 'train' | 'subway' | 'car' | 'walk' (구간 i = pts[i-1] → pts[i]) */
 let modeMemo=null;
 function travelModes(pts){
   if(modeMemo && modeMemo.pts===pts && modeMemo.places===S.places) return modeMemo.m;
-  const fl=hubSegs(pts,isAirport), tr=hubSegs(pts,isStation), sw=hubSegs(pts,isSubwayPl), m=[null];
+  const fl=hubSegs(pts,isAirport), tr=hubSegs(pts,isStation), rl=railSegs(pts), sw=hubSegs(pts,isSubwayPl), m=[null];
   for(let i=1;i<pts.length;i++){
     const a=pts[i-1], b=pts[i], sa=SW8[swKey(a)], sb=SW8[swKey(b)];
-    m[i] = fl.has(i) ? 'plane' : tr.has(i) ? 'train'
+    m[i] = fl.has(i) ? 'plane' : (tr.has(i) || rl.has(i)) ? 'train'
       : (sw.has(i) || (autoSubway() && subwayCand(a,b) && sa && sb && sa.n!==sb.n)) ? 'subway'
       : isDrive(a,b) ? 'car' : 'walk';
   }
@@ -1093,7 +1106,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.12-i';
+const APP_VERSION='2026.11.13-a';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
