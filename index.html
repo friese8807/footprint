@@ -196,6 +196,8 @@ header{position:absolute;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-in
   background:var(--glass-strong);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.15);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .stop.now .pin::after{content:"";position:absolute;inset:-9px;border-radius:17px;border:2px solid var(--c);animation:pulse 1.8s ease-out infinite}
 @keyframes pulse{from{opacity:.9;transform:scale(.8)}to{opacity:0;transform:scale(1.4)}}
+.map.zfade, #map.zfade{animation:zfade .4s ease-out}
+@keyframes zfade{from{opacity:.6}to{opacity:1}}
 .me{width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#2f80ff;border:3px solid #fff;box-shadow:0 0 0 8px rgba(47,128,255,.2)}
 
 /* ── Dialog ── */
@@ -564,9 +566,11 @@ function kakaoAdapter(){
       const tx=(x0+x1)/2+(pad.right-pad.left)/2*f, ty=(y0+y1)/2+(pad.bottom-pad.top)/2*f;   // 목표 중심(현재 화면 좌표)
       if(lv===lv0){ const dx=tx-el.clientWidth/2, dy=ty-el.clientHeight/2;      // 조금 어긋난 정도면 그대로 둔다
         if(Math.hypot(dx,dy) > Math.min(W,H)*0.18) map.panTo(LL(this.fromPx(tx,ty))); return lv; }
-      const ox=el.clientWidth/2, oy=el.clientHeight/2, k=1/f;  // 화면 배율 k로 확대할 때 목표 중심이 화면 중앙에 오도록 하는 고정점
-      const ax=(ox-tx*k)/(1-k), ay=(oy-ty*k)/(1-k);
-      map.setLevel(lv,{ anchor:LL(this.fromPx(ax,ay)), animate:{ duration:900 } });
+      /* 카카오의 줌 애니메이션은 그동안 오버레이(발자국·차·기차·커서)를 숨기고 선은 통째로 부풀려서
+         '사라졌다 순간이동'처럼 보인다. 그래서 줌은 애니메이션 없이 한 번에 바꾸고, 지도 전체를 살짝 페이드해 부드럽게 넘긴다. */
+      const c=LL(this.fromPx(tx,ty));
+      el.classList.remove('zfade'); void el.offsetWidth; el.classList.add('zfade');
+      map.setLevel(lv); map.setCenter(c);
       return lv;
     },
     center(){ const c=map.getCenter(); return { lat:c.getLat(), lng:c.getLng() }; },
@@ -1141,7 +1145,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.17-b';
+const APP_VERSION='2026.11.17-c';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
