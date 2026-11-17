@@ -550,6 +550,20 @@ function kakaoAdapter(){
     fromPx(x,y){ const c=map.getProjection().coordsFromContainerPoint(new K.Point(x,y)); return { lat:c.getLat(), lng:c.getLng() }; },
     fit(pts,pad){ const b=new K.LatLngBounds(); pts.forEach(p=>b.extend(LL(p))); map.setBounds(b,pad.top,pad.right,pad.bottom,pad.left); if(map.getLevel()<3) map.setLevel(3); },
     fly(p){ if(map.getLevel()>3) map.setLevel(3); map.panTo(LL(p)); },
+    /* 재생 중 카메라: 주어진 점들이 화면 안에 들어오도록 부드럽게 확대·축소 + 이동 */
+    follow(pts,pad,minLv=4){
+      const W=Math.max(80,el.clientWidth-pad.left-pad.right), H=Math.max(80,el.clientHeight-pad.top-pad.bottom);
+      const px=pts.map(p=>this.toPx(p)), xs=px.map(p=>p.x), ys=px.map(p=>p.y);
+      const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+      const lv0=map.getLevel(), need=Math.max((x1-x0)/W,(y1-y0)/H,1e-6);
+      const lv=Math.max(minLv, Math.min(13, lv0+Math.ceil(Math.log2(need)-0.05)));
+      const f=2**(lv-lv0);                                   // 목표 레벨에서 1px = 현재 f px
+      const tx=(x0+x1)/2+(pad.right-pad.left)/2*f, ty=(y0+y1)/2+(pad.bottom-pad.top)/2*f;   // 목표 중심(현재 화면 좌표)
+      if(lv===lv0) return map.panTo(LL(this.fromPx(tx,ty)));
+      const ox=el.clientWidth/2, oy=el.clientHeight/2, k=1/f;  // 화면 배율 k로 확대할 때 목표 중심이 화면 중앙에 오도록 하는 고정점
+      const ax=(ox-tx*k)/(1-k), ay=(oy-ty*k)/(1-k);
+      map.setLevel(lv,{ anchor:LL(this.fromPx(ax,ay)), animate:{ duration:450 } });
+    },
     center(){ const c=map.getCenter(); return { lat:c.getLat(), lng:c.getLng() }; },
     onZoom(fn){ K.event.addListener(map,'zoom_changed',()=>requestAnimationFrame(fn)); },
     onContext(fn){ K.event.addListener(map,'rightclick',e=>fn({ lat:e.latLng.getLat(), lng:e.latLng.getLng() })); },
@@ -582,6 +596,7 @@ function leafletAdapter(){
     fromPx(x,y){ return map.containerPointToLatLng([x,y]); },
     fit(pts,pad){ map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])),{ paddingTopLeft:[pad.left,pad.top], paddingBottomRight:[pad.right,pad.bottom], maxZoom:16 }); },
     fly(p){ map.flyTo(p, Math.max(map.getZoom(),16), { duration:.8 }); },
+    follow(pts,pad){ map.flyToBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])),{ paddingTopLeft:[pad.left,pad.top], paddingBottomRight:[pad.right,pad.bottom], maxZoom:16, duration:.5 }); },
     center(){ return map.getCenter(); },
     onZoom(fn){ map.on('zoomend',fn); },
     onContext(fn){ map.on('contextmenu',e=>fn(e.latlng)); },
@@ -778,11 +793,11 @@ function drawSteps(){
 }
 
 function sheetPeek(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-peek'))||250; }
+function dayPad(){ const top=$('header').getBoundingClientRect().bottom+20, k=M.kind==='kakao'; return { top, left:40, right:150, bottom: k ? 60 : sheetPeek()+60 }; }
 function fitDay(){
   if(!S.points.length) return;
   if(!M) return;
-  const top=$('header').getBoundingClientRect().bottom+20, k=M.kind==='kakao';
-  M.fit(S.points, { top, left:40, right:150, bottom: k ? 60 : sheetPeek()+60 });
+  M.fit(S.points, dayPad());
 }
 function focusStay(i){
   const s=stays[i]; if(!s) return;
@@ -989,6 +1004,19 @@ function applyTime(T, updateCursor=true){
 (()=>{
   const r=$('#ruler'); let raf=0, playing=0, last=0;
   r.addEventListener('scroll',()=>{ if(wantT!=null || raf) return; raf=requestAnimationFrame(()=>{ raf=0; applyTime(r.scrollLeft/PX_H*60); }); },{ passive:true });
+  /* 재생 카메라: 지금부터 잠깐 뒤(최소 20분, 빠른 재생이면 화면 1.2초 분량)까지 지나갈 점들을 화면에 맞춘다.
+     한곳에 머물거나 걸을 때는 확대, 차·기차처럼 멀리 갈 때는 자연히 축소된다. */
+  let camKey='', camAt=0;
+  const camera=(T,now)=>{
+    if(!M?.follow) return;
+    const pts=S.points, win=Math.max(20, spd*15*1.2), cur=stateAt(T), end=stateAt(T+win);
+    if(!cur) return;
+    const ahead=pts.filter(p=>{ const m=toMin(p.time); return m>T && m<=T+win; });
+    const key=ahead.map(p=>p.time).join()+'|'+cur.label;
+    if(key===camKey || now-camAt<800) return;
+    camKey=key; camAt=now;
+    M.follow([cur.pos, ...ahead, end.pos], dayPad());
+  };
   const stop=()=>{ if(!playing) return; cancelAnimationFrame(playing); playing=0; $('#playIco').setAttribute('d','M7 4.5v15l13-7.5z'); };
   const SPEEDS=[1,2,4,8,16];                         // 1× = 15분/초
   let spd=LS.get('pspeed',4); if(!SPEEDS.includes(spd)) spd=4;
@@ -1001,10 +1029,10 @@ function applyTime(T, updateCursor=true){
     const pts=S.points; if(!pts.length) return toast('재생할 기록이 없어요');
     const startM=toMin(pts[0].time), endM=toMin(pts[pts.length-1].time);
     if(S.T>=endM || S.T<startM) setRuler(Math.max(0,startM-15));
-    $('#playIco').setAttribute('d','M6 4h4v16H6zM14 4h4v16h-4z'); last=performance.now();
+    $('#playIco').setAttribute('d','M6 4h4v16H6zM14 4h4v16h-4z'); last=performance.now(); camKey=''; camAt=0;
     const tick=now=>{ const T=S.T+(now-last)/1000*spd*15; last=now;   // 1초 = spd×15분
       if(T>=endM){ setRuler(endM); stop(); return; }
-      r.scrollLeft=T*PX_H/60; applyTime(T); playing=requestAnimationFrame(tick); };
+      r.scrollLeft=T*PX_H/60; applyTime(T); camera(T,now); playing=requestAnimationFrame(tick); };
     playing=requestAnimationFrame(tick);
   };
 })();
@@ -1106,7 +1134,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.13-a';
+const APP_VERSION='2026.11.17-a';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
