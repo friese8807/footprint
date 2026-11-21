@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>발자취</title>
-<meta name="description" content="한 시간마다 기록되는 나의 하루 발자취">
+<meta name="description" content="30분마다 기록되는 나의 하루 발자취">
 <meta name="theme-color" content="#fcfcfe" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c1a28" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -212,7 +212,7 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
 .field{display:block;padding:10px 0;border-bottom:1px solid var(--faint)}
 .field:last-child{border-bottom:0}
 .field span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
-.field input{width:100%;border:0;background:transparent;color:var(--text);font:inherit;font-size:15px;outline:none;padding:2px 0}
+.field input{width:100%;border:0;background:transparent;color:var(--text);font:inherit;font-size:16px;outline:none;padding:2px 0}
 .row{display:flex;gap:8px;margin-top:10px}
 .btn{flex:1;padding:13px;border-radius:15px;font-weight:700;font-size:15px;background:var(--faint)}
 .btn.pri{background:var(--text);color:var(--bg)}
@@ -316,12 +316,12 @@ dialog[open]{animation:up .35s cubic-bezier(.2,.8,.2,1)}
       <div class="emojis" id="emojis"></div>
     </div>
     <div class="row"><button class="btn grad" id="addHereBtn">현재 위치로 등록</button><button class="btn" id="addCenterBtn">지도 중심으로 등록</button></div>
-    <p class="note">지도를 <b>길게 누르면</b> 그 지점을 바로 장소로 등록할 수 있어요. 등록된 장소 반경 150m 안의 기록은 장소 이름으로 묶여 표시됩니다.</p>
+    <p class="note">지도를 <b>길게 누르면</b> 그 지점을 바로 장소로 등록할 수 있어요. 등록된 장소의 반경(기본 150m, 시트 Places 의 radius 로 조정) 안의 기록은 장소 이름으로 묶여 표시됩니다.</p>
 
     <div class="gt">화면 진단</div>
     <p class="note" id="diag" style="font-variant-numeric:tabular-nums"></p>
-    <div class="gt">자동 기록 (1시간마다)</div>
-    <p class="note">iOS 웹앱은 백그라운드 위치 접근이 불가능하므로 <b>단축어 앱 → 자동화</b>가 매시 정각에 위치를 시트로 보냅니다. 설정 방법은 README 의 “단축어 자동화” 항목을 참고하세요.</p>
+    <div class="gt">자동 기록 (30분마다)</div>
+    <p class="note">iOS 웹앱은 백그라운드 위치 접근이 불가능하므로 <b>단축어 앱 → 자동화</b>가 30분마다(그리고 등록 장소 도착·출발 때) 위치를 시트로 보냅니다.</p>
   </div>
 </dialog>
 
@@ -803,7 +803,7 @@ function renderStats(){
 function renderList(){
   const el=$('#list');
   if(!S.points.length){
-    el.innerHTML = `<div class="empty"><div class="big">👣</div>${S.date===kstDate(new Date())?'아직 오늘의 기록이 없어요.<br>단축어 자동화가 매시 정각에 기록하거나<br><b>＋</b> 버튼으로 지금 기록할 수 있어요.':'이 날은 기록이 없어요.'}</div>`;
+    el.innerHTML = `<div class="empty"><div class="big">👣</div>${S.date===kstDate(new Date())?'아직 오늘의 기록이 없어요.<br>단축어 자동화가 30분마다 기록하거나<br><b>＋</b> 버튼으로 지금 기록할 수 있어요.':'이 날은 기록이 없어요.'}</div>`;
     return;
   }
   if(S.tab==='timeline'){
@@ -877,7 +877,7 @@ async function loadDay(fit=true){
 async function loadMeta(){
   try{ const [p,d]=await Promise.all([api('places'), api('days')]);
     S.places=p.places; S.days=d.days; LS.set('places',S.places); LS.set('days',S.days);
-  }catch(e){ toast('연결 오류: '+e.message); }
+  }catch(e){ toast('연결 오류: '+e.message); if(!demo()){ $('#statusTxt').textContent='연결 오류 · 설정에서 확인'; $('#statusDot').className='demo'; } }
   renderStrip(); renderPlaces();
 }
 
@@ -897,7 +897,7 @@ $('#recordBtn').onclick=async()=>{
     const pos=await getPos(); showMe(pos);
     const item={ lat:pos.coords.latitude, lng:pos.coords.longitude, accuracy:Math.round(pos.coords.accuracy), altitude:pos.coords.altitude, source:'app', timestamp:new Date().toISOString() };
     try{ await api('log', item, true); toast('📍 지금 위치를 기록했어요'); }
-    catch(e){ const q=LS.get('queue',[]); q.push(item); LS.set('queue',q); toast('오프라인 — 연결되면 자동 전송할게요'); }
+    catch(e){ if(e.server){ toast('기록 실패: '+e.message); return; } const q=LS.get('queue',[]); q.push(item); LS.set('queue',q); toast('오프라인 — 연결되면 자동 전송할게요'); }
     navigator.vibrate?.(12);
     dayCache.delete(kstDate(new Date()));
     if(S.date!==kstDate(new Date())) { S.date=kstDate(new Date()); renderStrip(); }
@@ -1058,6 +1058,7 @@ function renderPlaces(){
     <div class="n">${esc(p.name)}<small>${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)} · 반경 ${p.radius||150}m</small></div>
     <button data-n="${esc(p.name)}">삭제</button></div>`).join('') : '<div class="place"><div class="n"><small>등록된 장소가 없어요</small></div></div>';
   el.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+    if(!confirm(`'${b.dataset.n}' 장소를 삭제할까요? (구글 시트에서도 삭제됩니다)`)) return;
     try{ await api('deletePlace',{ name:b.dataset.n },true); S.places=S.places.filter(p=>p.name!==b.dataset.n); LS.set('places',S.places); renderPlaces(); drawDay(false); renderStats(); renderList(); }
     catch(e){ toast('삭제 실패: '+e.message); }
   });
@@ -1106,7 +1107,7 @@ async function boot(){
   await Promise.all([loadMeta(), loadDay()]);
   flushQueue();
 }
-const APP_VERSION='2026.11.17-d';
+const APP_VERSION='2026.11.21-a';
 /* iOS 홈 화면 앱에서 웹 화면이 실제 화면보다 짧게 잡히는 경우, 그 차이(--gap)만큼 패널을 아래로 늘림 */
 function fixGap(){
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
@@ -1124,7 +1125,13 @@ fixGap();
 addEventListener('resize',()=>{ fixGap(); setPeek(); });
 addEventListener('orientationchange',()=>setTimeout(()=>{ fixGap(); setPeek(); },300));
 addEventListener('online',flushQueue);
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ dayCache.delete(kstDate(new Date())); if(S.date===kstDate(new Date())) loadDay(false); } });
+/* 다시 열었을 때: 날짜가 바뀌었으면 오늘로 이동(보던 날이 '그날의 오늘'이었을 때만), 오늘 기록·장소 새로 받기 */
+let seenToday=kstDate(new Date());
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible') return;
+  const today=kstDate(new Date()); dayCache.delete(today);
+  if(seenToday!==today && S.date===seenToday){ seenToday=today; S.date=today; renderStrip(); loadDay(); }
+  else{ seenToday=today; renderStrip(); if(S.date===today) loadDay(false); }
+  loadMeta(); });
 boot();
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js');
 </script>
